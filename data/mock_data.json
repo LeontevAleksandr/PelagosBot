@@ -1,0 +1,179 @@
+{
+  "islands": [
+    "Боракай",
+    "Себу",
+    "Манила",
+    "Бохоль",
+    "Палаван"
+  ],
+  "hotels_count": 150,
+  "hotels": [
+    {
+      "id": "hotel_1",
+      "name": "BORACAY MANDARIN ISLAND HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.5,
+      "room_type": "Deluxe",
+      "photo_url": "https://example.com/hotel1.jpg",
+      "rooms": [
+        {"id": "room_1", "name": "Premier Room", "price": 117, "guests": 2},
+        {"id": "room_2", "name": "Premier Deluxe Sea View", "price": 148, "guests": 2},
+        {"id": "room_3", "name": "Deluxe", "price": 156, "guests": 2},
+        {"id": "room_4", "name": "Penthouse Suite", "price": 197, "guests": 3},
+        {"id": "room_5", "name": "Grand Poolside", "price": 198, "guests": 2},
+        {"id": "room_6", "name": "Deluxe Family", "price": 203, "guests": 4},
+        {"id": "room_7", "name": "Grand Deluxe Poolside", "price": 244, "guests": 2},
+        {"id": "room_8", "name": "Ambassador Suite", "price": 266, "guests": 2},
+        {"id": "room_9", "name": "Mandarin Grand Suite", "price": 315, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_2",
+      "name": "BORACAY BEACH RESORT",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.3,
+      "room_type": "Superior",
+      "photo_url": "https://example.com/hotel2.jpg",
+      "rooms": [
+        {"id": "room_10", "name": "Standard Room", "price": 125, "guests": 2},
+        {"id": "room_11", "name": "Superior Room", "price": 145, "guests": 2},
+        {"id": "room_12", "name": "Deluxe Ocean View", "price": 175, "guests": 2},
+        {"id": "room_13", "name": "Junior Suite", "price": 210, "guests": 2},
+        {"id": "room_14", "name": "Executive Suite", "price": 280, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_3",
+      "name": "WHITE BEACH HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.6,
+      "room_type": "Deluxe",
+      "photo_url": "https://example.com/hotel3.jpg",
+      "rooms": [
+        {"id": "room_15", "name": "Garden View", "price": 130, "guests": 2},
+        {"id": "room_16", "name": "Pool View", "price": 155, "guests": 2},
+        {"id": "room_17", "name": "Beach Front", "price": 190, "guests": 2},
+        {"id": "room_18", "name": "Sunset Suite", "price": 240, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_4",
+      "name": "PARADISE ISLAND RESORT",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.4,
+      "room_type": "Superior",
+      "photo_url": "https://example.com/hotel4.jpg",
+      "rooms": [
+        {"id": "room_19", "name": "Classic Room", "price": 120, "guests": 2},
+        {"id": "room_20", "name": "Superior Garden", "price": 140, "guests": 2},
+        {"id": "room_21", "name": "Deluxe Balcony", "price": 165, "guests": 2},
+        {"id": "room_22", "name": "Premium Suite", "price": 220, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_5",
+      "name": "CEBU GRAND HOTEL",
+      "island": "cebu",
+      "island_name": "Себу",
+      "stars": 5,
+      "rating": 4.7,
+      "room_type": "Superior",
+      "photo_url": "https://example.com/hotel5.jpg",
+      "rooms": [
+        {"id": "room_23", "name": "Standard Room", "price": 95, "guests": 2},
+        {"id": "room_24", "name": "Superior Room", "price": 125, "guests": 2},
+        {"id": "room_25", "name": "Deluxe Sea View", "price": 165, "guests": 2},
+        {"id": "room_26", "name": "Executive Suite", "price": 230, "guests": 3},
+        {"id": "room_27", "name": "Presidential Suite", "price": 450, "guests": 4}
+      ]
+    },
+    {
+      "id": "hotel_6",
+      "name": "CEBU CITY PLAZA",
+      "island": "cebu",
+      "island_name": "Себу",
+      "stars": 5,
+      "rating": 4.5,
+      "room_type": "Deluxe",
+      "photo_url": "https://example.com/hotel6.jpg",
+      "rooms": [
+        {"id": "room_28", "name": "City View", "price": 110, "guests": 2},
+        {"id": "room_29", "name": "Premier Room", "price": 140, "guests": 2},
+        {"id": "room_30", "name": "Deluxe Corner", "price": 180, "guests": 2},
+        {"id": "room_31", "name": "Club Suite", "price": 260, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_7",
+      "name": "MANILA BAY RESORT",
+      "island": "manila",
+      "island_name": "Манила",
+      "stars": 3,
+      "rating": 4.2,
+      "room_type": "Standard",
+      "photo_url": "https://example.com/hotel7.jpg",
+      "rooms": [
+        {"id": "room_32", "name": "Economy Room", "price": 65, "guests": 2},
+        {"id": "room_33", "name": "Standard Room", "price": 85, "guests": 2},
+        {"id": "room_34", "name": "Superior Room", "price": 105, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_8",
+      "name": "MANILA DOWNTOWN HOTEL",
+      "island": "manila",
+      "island_name": "Манила",
+      "stars": 3,
+      "rating": 4.0,
+      "room_type": "Standard",
+      "photo_url": "https://example.com/hotel8.jpg",
+      "rooms": [
+        {"id": "room_35", "name": "Basic Room", "price": 60, "guests": 2},
+        {"id": "room_36", "name": "Standard Twin", "price": 75, "guests": 2},
+        {"id": "room_37", "name": "Deluxe Double", "price": 95, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_9",
+      "name": "BOHOL BEACH CLUB",
+      "island": "bohol",
+      "island_name": "Бохоль",
+      "stars": 4,
+      "rating": 4.6,
+      "room_type": "Villa",
+      "photo_url": "https://example.com/hotel9.jpg",
+      "rooms": [
+        {"id": "room_38", "name": "Garden Villa", "price": 135, "guests": 2},
+        {"id": "room_39", "name": "Beach Villa", "price": 170, "guests": 2},
+        {"id": "room_40", "name": "Premium Villa", "price": 210, "guests": 3},
+        {"id": "room_41", "name": "Royal Villa", "price": 290, "guests": 4}
+      ]
+    },
+    {
+      "id": "hotel_10",
+      "name": "PALAWAN PARADISE RESORT",
+      "island": "palawan",
+      "island_name": "Палаван",
+      "stars": 5,
+      "rating": 4.8,
+      "room_type": "Bungalow",
+      "photo_url": "https://example.com/hotel10.jpg",
+      "rooms": [
+        {"id": "room_42", "name": "Garden Bungalow", "price": 150, "guests": 2},
+        {"id": "room_43", "name": "Beach Bungalow", "price": 195, "guests": 2},
+        {"id": "room_44", "name": "Water Bungalow", "price": 280, "guests": 2},
+        {"id": "room_45", "name": "Luxury Villa", "price": 420, "guests": 4}
+      ]
+    }
+  ],
+  "users": {},
+  "orders": []
+}

@@ -1,0 +1,2 @@
+# States package
+"""FSM состояния"""
