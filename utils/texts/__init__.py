@@ -30,6 +30,25 @@ from .hotels import (
     CONTACT_RECEIVED
 )
 
+from .excursions import (
+    get_excursions_intro_text,
+    EXCURSIONS_SELECT_TYPE,
+    EXCURSIONS_GROUP_INTRO,
+    EXCURSIONS_PRIVATE_INTRO,
+    COMPANIONS_INTRO,
+    COMPANIONS_HOW_IT_WORKS,
+    COMPANIONS_SELECT_EXCURSION,
+    COMPANIONS_SELECT_DATE,
+    COMPANIONS_INPUT_PEOPLE,
+    NO_EXCURSIONS_FOUND,
+    get_group_excursion_card_text,
+    get_private_excursion_card_text,
+    get_companions_excursion_card_text,
+    get_excursion_join_text,
+    get_excursion_booking_text,
+    get_companions_created_text
+)
+
 __all__ = [
     # Common
     'GREETING',
@@ -56,5 +75,22 @@ __all__ = [
     'get_hotels_confirmation_text',
     'get_hotel_card_text',
     'get_booking_confirmation_text',
-    'CONTACT_RECEIVED'
+    'CONTACT_RECEIVED',
+    # Excursions
+    'get_excursions_intro_text',
+    'EXCURSIONS_SELECT_TYPE',
+    'EXCURSIONS_GROUP_INTRO',
+    'EXCURSIONS_PRIVATE_INTRO',
+    'COMPANIONS_INTRO',
+    'COMPANIONS_HOW_IT_WORKS',
+    'COMPANIONS_SELECT_EXCURSION',
+    'COMPANIONS_SELECT_DATE',
+    'COMPANIONS_INPUT_PEOPLE',
+    'NO_EXCURSIONS_FOUND',
+    'get_group_excursion_card_text',
+    'get_private_excursion_card_text',
+    'get_companions_excursion_card_text',
+    'get_excursion_join_text',
+    'get_excursion_booking_text',
+    'get_companions_created_text'
 ]

@@ -20,6 +20,16 @@ from .hotels import (
     get_share_contact_keyboard
 )
 
+from .excursions import (
+    get_excursion_type_keyboard,
+    get_group_excursion_keyboard,
+    get_no_group_excursions_keyboard,
+    get_private_excursion_keyboard,
+    get_companions_list_keyboard,
+    get_companions_excursion_keyboard,
+    get_companions_create_agree_keyboard
+)
+
 __all__ = [
     # Reply
     'get_main_reply_keyboard',
@@ -36,5 +46,13 @@ __all__ = [
     'get_price_method_keyboard',
     'get_price_range_keyboard',
     'get_hotel_navigation_keyboard',
-    'get_share_contact_keyboard'
+    'get_share_contact_keyboard',
+    # Excursions
+    'get_excursion_type_keyboard',
+    'get_group_excursion_keyboard',
+    'get_no_group_excursions_keyboard',
+    'get_private_excursion_keyboard',
+    'get_companions_list_keyboard',
+    'get_companions_excursion_keyboard',
+    'get_companions_create_agree_keyboard'
 ]

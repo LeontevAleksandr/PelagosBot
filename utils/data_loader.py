@@ -92,6 +92,65 @@ class DataLoader:
             room for room in rooms
             if min_price <= room["price"] <= max_price
         ]
+    
+    # ========== ЭКСКУРСИИ ==========
+    
+    def get_excursions_by_filters(
+        self,
+        island: str = None,
+        excursion_type: str = None,
+        date: str = None
+    ) -> list:
+        """
+        Получить экскурсии по фильтрам
+        
+        Args:
+            island: код острова
+            excursion_type: тип экскурсии (group, private, companions)
+            date: дата в формате YYYY-MM-DD (для групповых и companions)
+        """
+        excursions = self.data.get("excursions", [])
+        
+        # Фильтр по острову
+        if island:
+            excursions = [e for e in excursions if e["island"] == island]
+        
+        # Фильтр по типу
+        if excursion_type:
+            excursions = [e for e in excursions if e["type"] == excursion_type]
+        
+        # Фильтр по дате (для групповых и companions)
+        if date:
+            excursions = [e for e in excursions if e.get("date") == date]
+        
+        return excursions
+    
+    def get_excursion_by_id(self, excursion_id: str) -> dict:
+        """Получить экскурсию по ID"""
+        excursions = self.data.get("excursions", [])
+        for excursion in excursions:
+            if excursion["id"] == excursion_id:
+                return excursion
+        return None
+    
+    def get_companions_by_month(self, island: str, year: int, month: int) -> list:
+        """Получить экскурсии с поиском попутчиков за месяц"""
+        from datetime import datetime
+        
+        excursions = self.get_excursions_by_filters(island=island, excursion_type="companions")
+        
+        # Фильтруем по месяцу
+        result = []
+        for exc in excursions:
+            if exc.get("date"):
+                try:
+                    exc_date = datetime.strptime(exc["date"], "%Y-%m-%d")
+                    if exc_date.year == year and exc_date.month == month:
+                        result.append(exc)
+                except:
+                    pass
+        
+        return result
 
 
 # Глобальный экземпляр

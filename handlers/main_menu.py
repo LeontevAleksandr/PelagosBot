@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from keyboards import (
-    get_menu_keyboard,
+    get_menu_keyboard, 
     get_main_menu_keyboard,
     get_back_to_main_keyboard
 )
@@ -73,12 +73,7 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 # ========== Заглушки для основных разделов ==========
 
 # Отели реализованы в handlers/hotels.py
-
-@router.callback_query(F.data == "main:excursions")
-async def select_excursions(callback: CallbackQuery):
-    """Выбор экскурсий (заглушка)"""
-    await callback.answer("🏝 Раздел 'Экскурсии' будет реализован в следующей итерации", show_alert=True)
-
+# Экскурсии реализованы в handlers/excursions.py
 
 @router.callback_query(F.data == "main:packages")
 async def select_packages(callback: CallbackQuery):
