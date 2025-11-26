@@ -27,7 +27,8 @@ from .excursions import (
     get_private_excursion_keyboard,
     get_companions_list_keyboard,
     get_companions_excursion_keyboard,
-    get_companions_create_agree_keyboard
+    get_companions_create_agree_keyboard,
+    get_companions_select_excursion_keyboard
 )
 
 __all__ = [
@@ -54,5 +55,6 @@ __all__ = [
     'get_private_excursion_keyboard',
     'get_companions_list_keyboard',
     'get_companions_excursion_keyboard',
-    'get_companions_create_agree_keyboard'
+    'get_companions_create_agree_keyboard',
+    'get_companions_select_excursion_keyboard'
 ]

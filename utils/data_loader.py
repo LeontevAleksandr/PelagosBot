@@ -151,6 +151,74 @@ class DataLoader:
                     pass
         
         return result
+    
+    # ========== ПАКЕТНЫЕ ТУРЫ ==========
+    
+    def get_packages_by_date(self, target_date: str = None) -> list:
+        """
+        Получить пакетные туры близкие к указанной дате
+        
+        Args:
+            target_date: дата в формате YYYY-MM-DD (если None - все туры)
+        """
+        from datetime import datetime, timedelta
+        
+        packages = self.data.get("packages", [])
+        
+        if not target_date:
+            return packages
+        
+        # Ищем туры, которые начинаются в пределах ±30 дней от указанной даты
+        target = datetime.strptime(target_date, "%Y-%m-%d")
+        result = []
+        
+        for pkg in packages:
+            try:
+                start_date = datetime.strptime(pkg["start_date"], "%Y-%m-%d")
+                diff = abs((start_date - target).days)
+                
+                if diff <= 30:  # В пределах месяца
+                    result.append(pkg)
+            except:
+                pass
+        
+        # Сортируем по близости к дате
+        result.sort(key=lambda p: abs((datetime.strptime(p["start_date"], "%Y-%m-%d") - target).days))
+        
+        return result
+    
+    def get_package_by_id(self, package_id: str) -> dict:
+        """Получить пакетный тур по ID"""
+        packages = self.data.get("packages", [])
+        for package in packages:
+            if package["id"] == package_id:
+                return package
+        return None
+
+    # ========== ТРАНСФЕРЫ ==========
+
+    def get_transfers_by_island(self, island: str = None) -> list:
+        """
+        Получить трансферы по острову
+
+        Args:
+            island: код острова (если None - все трансферы)
+        """
+        transfers = self.data.get("transfers", [])
+
+        if not island:
+            return transfers
+
+        # Фильтр по острову
+        return [t for t in transfers if t["island"] == island]
+
+    def get_transfer_by_id(self, transfer_id: str) -> dict:
+        """Получить трансфер по ID"""
+        transfers = self.data.get("transfers", [])
+        for transfer in transfers:
+            if transfer["id"] == transfer_id:
+                return transfer
+        return None
 
 
 # Глобальный экземпляр

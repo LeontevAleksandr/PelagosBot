@@ -74,20 +74,26 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 
 # Отели реализованы в handlers/hotels.py
 # Экскурсии реализованы в handlers/excursions.py
-
-@router.callback_query(F.data == "main:packages")
-async def select_packages(callback: CallbackQuery):
-    """Выбор пакетных туров (заглушка)"""
-    await callback.answer("📦 Раздел 'Пакетные туры' будет реализован в следующей итерации", show_alert=True)
-
-
-@router.callback_query(F.data == "main:transfers")
-async def select_transfers(callback: CallbackQuery):
-    """Выбор трансферов (заглушка)"""
-    await callback.answer("🚗 Раздел 'Трансферы' будет реализован в следующей итерации", show_alert=True)
-
+# Пакетные туры реализованы в handlers/packages.py
+# Трансферы реализованы в handlers/transfers.py
 
 @router.callback_query(F.data == "main:other")
 async def select_other(callback: CallbackQuery):
     """Другое (заглушка)"""
     await callback.answer("➕ Раздел 'Другое' будет реализован в следующей итерации", show_alert=True)
+
+
+async def show_main_menu(message: Message, state: FSMContext, edit: bool = False):
+    """Вспомогательная функция для показа главного меню"""
+    data = await state.get_data()
+    user_name = data.get("user_name", "Друг")
+
+    text = get_main_menu_text(user_name)
+    keyboard = get_main_menu_keyboard()
+
+    if edit:
+        await message.edit_text(text, reply_markup=keyboard)
+    else:
+        await message.answer(text, reply_markup=keyboard)
+
+    await state.set_state(UserStates.MAIN_MENU)

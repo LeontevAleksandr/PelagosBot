@@ -1,6 +1,6 @@
 """Обработчики флоу экскурсий"""
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from datetime import datetime, timedelta
 
@@ -14,6 +14,7 @@ from keyboards import (
     get_companions_list_keyboard,
     get_companions_excursion_keyboard,
     get_companions_create_agree_keyboard,
+    get_companions_select_excursion_keyboard,
     get_share_contact_keyboard,
     get_back_to_main_keyboard
 )
@@ -43,6 +44,8 @@ from utils.helpers import (
     validate_phone_number
 )
 from utils.data_loader import data_loader
+from utils.media_manager import get_excursion_photo
+from utils.contact_handler import contact_handler
 
 router = Router()
 
@@ -165,7 +168,7 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
     await show_group_excursion(callback.message, state, 0, date)
 
 
-async def show_group_excursion(message: Message, state: FSMContext, index: int, current_date: str):
+async def show_group_excursion(message: Message, state: FSMContext, index: int, current_date: str, expanded: bool = False):
     """Показать карточку групповой экскурсии"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
@@ -174,7 +177,7 @@ async def show_group_excursion(message: Message, state: FSMContext, index: int, 
         return
     
     excursion = excursions[index]
-    card_text = get_group_excursion_card_text(excursion)
+    card_text = get_group_excursion_card_text(excursion, expanded)
     
     # Проверяем наличие других экскурсий на эту же дату (для пагинации)
     has_prev = index > 0
@@ -185,6 +188,12 @@ async def show_group_excursion(message: Message, state: FSMContext, index: int, 
     
     # Кнопка присоединиться
     buttons.append([InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"exc_join:{excursion['id']}")])
+    
+    # Кнопка развернуть/свернуть
+    if expanded:
+        buttons.append([InlineKeyboardButton(text="Свернуть ▲", callback_data=f"exc_group_collapse:{index}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_group_expand:{index}")])
     
     # Пагинация между экскурсиями на одну дату
     if has_prev or has_next:
@@ -199,11 +208,141 @@ async def show_group_excursion(message: Message, state: FSMContext, index: int, 
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     
-    await message.answer(
-        card_text,
-        reply_markup=keyboard,
-        parse_mode="Markdown"
-    )
+    # Пытаемся получить фото
+    photo = await get_excursion_photo(excursion["id"])
+    
+    if photo:
+        await message.answer_photo(
+            photo=photo,
+            caption=card_text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer(
+            card_text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+
+
+@router.callback_query(F.data.startswith("exc_group_expand:"))
+async def expand_group_excursion(callback: CallbackQuery, state: FSMContext):
+    """Развернуть описание групповой экскурсии"""
+    await callback.answer()
+    
+    index = int(callback.data.split(":")[1])
+    
+    data = await state.get_data()
+    excursions = data.get("excursions", [])
+    current_date = data.get("current_date")
+    
+    if not excursions or index >= len(excursions):
+        return
+    
+    excursion = excursions[index]
+    card_text = get_group_excursion_card_text(excursion, expanded=True)
+    
+    has_prev = index > 0
+    has_next = index < len(excursions) - 1
+    
+    buttons = []
+    buttons.append([InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"exc_join:{excursion['id']}")])
+    buttons.append([InlineKeyboardButton(text="Свернуть ▲", callback_data=f"exc_group_collapse:{index}")])
+    
+    if has_prev or has_next:
+        nav_buttons = []
+        if has_prev:
+            nav_buttons.append(InlineKeyboardButton(text="⬅️ Предыдущая", callback_data=f"exc_group_nav:prev:{index}"))
+        if has_next:
+            nav_buttons.append(InlineKeyboardButton(text="Следующая ➡️", callback_data=f"exc_group_nav:next:{index}"))
+        buttons.append(nav_buttons)
+    
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    # Удаляем старое сообщение и отправляем новое
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Получаем фото
+    photo = await get_excursion_photo(excursion["id"])
+    
+    if photo:
+        await callback.message.answer_photo(
+            photo=photo,
+            caption=card_text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+    else:
+        await callback.message.answer(
+            card_text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+
+
+@router.callback_query(F.data.startswith("exc_group_collapse:"))
+async def collapse_group_excursion(callback: CallbackQuery, state: FSMContext):
+    """Свернуть описание групповой экскурсии"""
+    await callback.answer()
+    
+    index = int(callback.data.split(":")[1])
+    
+    data = await state.get_data()
+    excursions = data.get("excursions", [])
+    
+    if not excursions or index >= len(excursions):
+        return
+    
+    excursion = excursions[index]
+    card_text = get_group_excursion_card_text(excursion, expanded=False)
+    
+    has_prev = index > 0
+    has_next = index < len(excursions) - 1
+    
+    buttons = []
+    buttons.append([InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"exc_join:{excursion['id']}")])
+    buttons.append([InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_group_expand:{index}")])
+    
+    if has_prev or has_next:
+        nav_buttons = []
+        if has_prev:
+            nav_buttons.append(InlineKeyboardButton(text="⬅️ Предыдущая", callback_data=f"exc_group_nav:prev:{index}"))
+        if has_next:
+            nav_buttons.append(InlineKeyboardButton(text="Следующая ➡️", callback_data=f"exc_group_nav:next:{index}"))
+        buttons.append(nav_buttons)
+    
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    # Удаляем старое сообщение и отправляем новое
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Получаем фото
+    photo = await get_excursion_photo(excursion["id"])
+    
+    if photo:
+        await callback.message.answer_photo(
+            photo=photo,
+            caption=card_text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+    else:
+        await callback.message.answer(
+            card_text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
 
 
 @router.callback_query(F.data.startswith("exc_group_nav:"))
@@ -317,7 +456,7 @@ async def process_private_people_count(message: Message, state: FSMContext):
         )
 
 
-async def show_private_excursion(message: Message, state: FSMContext, index: int):
+async def show_private_excursion(message: Message, state: FSMContext, index: int, expanded: bool = False):
     """Показать карточку индивидуальной экскурсии"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
@@ -327,18 +466,68 @@ async def show_private_excursion(message: Message, state: FSMContext, index: int
         return
     
     excursion = excursions[index]
-    card_text = get_private_excursion_card_text(excursion, people_count)
+    card_text = get_private_excursion_card_text(excursion, people_count, expanded)
     
     keyboard = get_private_excursion_keyboard(
         excursion["id"],
         index,
-        len(excursions)
+        len(excursions),
+        expanded,
+        excursion.get("url")
     )
     
-    await message.answer(
-        card_text,
-        reply_markup=keyboard
-    )
+    # Пытаемся получить фото
+    photo = await get_excursion_photo(excursion["id"])
+    
+    if photo:
+        await message.answer_photo(
+            photo=photo,
+            caption=card_text,
+            reply_markup=keyboard
+        )
+    else:
+        await message.answer(
+            card_text,
+            reply_markup=keyboard
+        )
+
+
+@router.callback_query(F.data.startswith("exc_private_expand:"))
+async def expand_private_excursion(callback: CallbackQuery, state: FSMContext):
+    """Развернуть описание индивидуальной экскурсии"""
+    await callback.answer()
+    
+    parts = callback.data.split(":")
+    excursion_id = parts[1]
+    index = int(parts[2])
+    
+    # Удаляем старое сообщение
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Показываем развернутую версию
+    await show_private_excursion(callback.message, state, index, expanded=True)
+
+
+@router.callback_query(F.data.startswith("exc_private_collapse:"))
+async def collapse_private_excursion(callback: CallbackQuery, state: FSMContext):
+    """Свернуть описание индивидуальной экскурсии"""
+    await callback.answer()
+    
+    parts = callback.data.split(":")
+    excursion_id = parts[1]
+    index = int(parts[2])
+    
+    # Удаляем старое сообщение
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Показываем свернутую версию
+    await show_private_excursion(callback.message, state, index, expanded=False)
 
 
 @router.callback_query(UserStates.EXCURSIONS_SHOW_RESULTS, F.data.startswith("exc_nav:"))
@@ -452,34 +641,116 @@ async def show_companions_list(message: Message, state: FSMContext, year: int, m
         companions_excursions=excursions
     )
     
+    # Формируем текст заголовка
+    month_names = [
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    ]
+    
+    text = f"**Экскурсии с поиском попутчиков**\n{month_names[month-1]} {year}\n\n"
+    
     if not excursions:
-        text = f"На выбранный месяц экскурсий с поиском попутчиков пока нет."
+        text += "На выбранный месяц экскурсий пока нет."
         keyboard = get_companions_list_keyboard(month, year)
         
-        await message.answer(text, reply_markup=keyboard)
+        await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
     else:
-        # Показываем каждую экскурсию с кнопкой
-        text = "**Экскурсии с поиском попутчиков:**\n\n"
-        await message.answer(text, parse_mode="Markdown")
+        # Формируем кнопки для каждой экскурсии
+        buttons = []
         
-        for i, exc in enumerate(excursions):
-            card_text = f"📅 {format_date(exc['date'])}, {exc['time']}\n"
-            card_text += f"{exc['name']}\n"
-            card_text += f"👥 Уже {exc['companions_count']} человек"
+        for exc in excursions:
+            # Текст кнопки: дата + название (обрезаем если длинное)
+            button_text = f"📅 {format_date(exc['date'])} - {exc['name'][:40]}"
+            if len(exc['name']) > 40:
+                button_text += "..."
             
-            # Кнопка для просмотра детальной информации
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Подробнее", callback_data=f"comp_view:{exc['id']}")]
-            ])
-            
-            await message.answer(card_text, reply_markup=keyboard)
+            buttons.append([InlineKeyboardButton(
+                text=button_text,
+                callback_data=f"comp_view:{exc['id']}"
+            )])
         
-        # Навигация в конце
-        nav_keyboard = get_companions_list_keyboard(month, year)
-        await message.answer("Навигация:", reply_markup=nav_keyboard)
+        # Навигация по месяцам
+        prev_month = month - 1 if month > 1 else 12
+        prev_year = year if month > 1 else year - 1
+        
+        next_month = month + 1 if month < 12 else 1
+        next_year = year if month < 12 else year + 1
+        
+        buttons.append([
+            InlineKeyboardButton(text="⬅️", callback_data=f"comp_month:{prev_year}-{prev_month:02d}"),
+            InlineKeyboardButton(text=f"{month_names[month-1]} {year}", callback_data="comp_month:ignore"),
+            InlineKeyboardButton(text="➡️", callback_data=f"comp_month:{next_year}-{next_month:02d}")
+        ])
+        
+        buttons.append([InlineKeyboardButton(text="➕ Создать свою заявку", callback_data="comp_create:start")])
+        buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")])
+        buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        
+        await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
 
 
-@router.callback_query(UserStates.COMPANIONS_VIEW_LIST, F.data.startswith("comp_month:"))
+@router.callback_query(F.data.startswith("comp_view:"))
+async def view_companion_excursion(callback: CallbackQuery, state: FSMContext):
+    """Просмотр детальной информации об экскурсии с попутчиками"""
+    await callback.answer()
+    
+    excursion_id = callback.data.split(":")[1]
+    excursion = data_loader.get_excursion_by_id(excursion_id)
+    
+    if not excursion:
+        return
+    
+    # Показываем детальную карточку
+    card_text = get_companions_excursion_card_text(excursion)
+    keyboard = get_companions_excursion_keyboard(excursion_id, excursion.get("url"))
+    
+    await callback.message.answer(
+        card_text,
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+
+@router.callback_query(F.data.startswith("comp_join:"))
+async def join_companion_excursion(callback: CallbackQuery, state: FSMContext):
+    """Присоединиться к экскурсии с попутчиками"""
+    await callback.answer()
+    
+    excursion_id = callback.data.split(":")[1]
+    excursion = data_loader.get_excursion_by_id(excursion_id)
+    
+    if not excursion:
+        return
+    
+    await state.update_data(selected_excursion_id=excursion_id)
+    
+    await callback.message.answer(
+        get_excursion_join_text(excursion["name"]),
+        reply_markup=get_share_contact_keyboard()
+    )
+    
+    await state.set_state(UserStates.SHARE_CONTACT)
+
+
+@router.callback_query(F.data == "comp_back:list")
+async def back_to_companions_list(callback: CallbackQuery, state: FSMContext):
+    """Вернуться к списку попутчиков"""
+    await callback.answer()
+    
+    data = await state.get_data()
+    year = data.get("companions_year", datetime.now().year)
+    month = data.get("companions_month", datetime.now().month)
+    
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    await show_companions_list(callback.message, state, year, month)
+    
+    await state.set_state(UserStates.COMPANIONS_VIEW_LIST)
 async def navigate_companions_month(callback: CallbackQuery, state: FSMContext):
     """Навигация по месяцам для попутчиков"""
     await callback.answer()
@@ -529,54 +800,11 @@ async def create_companion_agree(callback: CallbackQuery, state: FSMContext):
         )
         return
     
-    # Формируем список экскурсий
-    text = COMPANIONS_SELECT_EXCURSION + "\n\n"
-    for i, exc in enumerate(excursions, 1):
-        text += f"{i}. {exc['name']}\n"
-    
     await state.update_data(available_excursions=excursions)
-    
-    await callback.message.edit_text(
-        text,
-        reply_markup=get_back_to_main_keyboard()
-    )
-    
-    await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_EXCURSION)
 
-
-@router.callback_query(F.data == "comp_create:agree")
-async def create_companion_agree(callback: CallbackQuery, state: FSMContext):
-    """Согласие с условиями поиска попутчиков"""
-    await callback.answer()
-    
-    data = await state.get_data()
-    island = data.get("island")
-    
-    # Получаем все экскурсии для выбора
-    excursions = data_loader.get_excursions_by_filters(island=island)
-    
-    if not excursions:
-        await callback.message.edit_text(
-            "😔 К сожалению, экскурсий не найдено.",
-            reply_markup=get_back_to_main_keyboard()
-        )
-        return
-    
-    # Формируем inline кнопки для каждой экскурсии
-    buttons = []
-    for exc in excursions:
-        buttons.append([InlineKeyboardButton(
-            text=exc['name'][:60],  # Обрезаем длинные названия
-            callback_data=f"comp_select_exc:{exc['id']}"
-        )])
-    
-    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="comp_back:list")])
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    
     await callback.message.edit_text(
         COMPANIONS_SELECT_EXCURSION,
-        reply_markup=keyboard
+        reply_markup=get_companions_select_excursion_keyboard(excursions)
     )
     
     await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_EXCURSION)
@@ -584,22 +812,25 @@ async def create_companion_agree(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(UserStates.COMPANIONS_CREATE_SELECT_EXCURSION, F.data.startswith("comp_select_exc:"))
 async def select_excursion_for_companion(callback: CallbackQuery, state: FSMContext):
-    """Выбор экскурсии для создания заявки"""
+    """Выбор экскурсии для создания заявки - сразу запрашиваем контакт"""
     await callback.answer()
-    
+
     excursion_id = callback.data.split(":")[1]
+    excursion = data_loader.get_excursion_by_id(excursion_id)
+
+    if not excursion:
+        await callback.answer("❌ Экскурсия не найдена", show_alert=True)
+        return
+
     await state.update_data(selected_excursion_id=excursion_id)
-    
-    # Показываем календарь
-    now = datetime.now()
-    calendar = get_calendar_keyboard(now.year, now.month)
-    
+
+    # Сразу запрашиваем контакт для создания заявки попутчика
     await callback.message.edit_text(
-        COMPANIONS_SELECT_DATE,
-        reply_markup=calendar
+        get_excursion_join_text(excursion["name"]),
+        reply_markup=get_share_contact_keyboard()
     )
-    
-    await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_DATE)
+
+    await state.set_state(UserStates.SHARE_CONTACT)
 
 
 @router.callback_query(UserStates.COMPANIONS_CREATE_SELECT_DATE, F.data.startswith("cal:"))
@@ -680,46 +911,13 @@ async def process_companion_people_count(message: Message, state: FSMContext):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_excursion_phone(message: Message, state: FSMContext):
     """Обработка номера телефона для экскурсий"""
-    valid, phone_number = validate_phone_number(message.text)
-    
-    if not valid:
-        await message.answer(
-            "❌ Неверный формат номера телефона.\n\nПожалуйста, введите номер в формате:\n+79991234567 или 89991234567",
-            reply_markup=get_back_to_main_keyboard()
-        )
-        return
-    
-    try:
-        await message.delete()
-    except:
-        pass
-    
-    await state.update_data(phone_number=phone_number)
-    
-    await message.answer(
-        CONTACT_RECEIVED,
-        reply_markup=get_back_to_main_keyboard()
-    )
-    
-    await state.set_state(UserStates.MAIN_MENU)
+    await contact_handler.process_text_phone(message, state)
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_excursion_contact(message: Message, state: FSMContext):
     """Обработка контакта для экскурсий"""
-    phone_number = message.contact.phone_number
-    
-    if not phone_number.startswith('+'):
-        phone_number = '+' + phone_number
-    
-    await state.update_data(phone_number=phone_number)
-    
-    await message.answer(
-        CONTACT_RECEIVED,
-        reply_markup=get_back_to_main_keyboard()
-    )
-    
-    await state.set_state(UserStates.MAIN_MENU)
+    await contact_handler.process_contact(message, state)
 
 
 # ========== Навигация назад ==========
@@ -755,5 +953,5 @@ async def back_to_type_excursions(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("exc_view:"))
 async def view_excursion_details(callback: CallbackQuery):
-    """Просмотр деталей экскурсии"""
-    await callback.answer("🔍 Функция просмотра экскурсии будет реализована позже", show_alert=True)
+    """Просмотр деталей экскурсии (заглушка для экскурсий без URL)"""
+    await callback.answer("Ссылка на эту экскурсию пока недоступна", show_alert=True)

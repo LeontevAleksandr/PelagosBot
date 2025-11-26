@@ -37,15 +37,16 @@ def format_date(date_str: str) -> str:
         return date_str
 
 
-def get_calendar_keyboard(year: int, month: int, selected_date: str = None, min_date: str = None) -> InlineKeyboardMarkup:
+def get_calendar_keyboard(year: int, month: int, selected_date: str = None, min_date: str = None, back_callback: str = "hotels:back_from_calendar") -> InlineKeyboardMarkup:
     """
     Генерация inline календаря
-    
+
     Args:
         year: год
         month: месяц (1-12)
         selected_date: уже выбранная дата (для выезда, чтобы блокировать прошлые даты)
         min_date: минимальная допустимая дата в формате YYYY-MM-DD
+        back_callback: callback_data для кнопки "Назад"
     """
     import calendar
     
@@ -123,8 +124,8 @@ def get_calendar_keyboard(year: int, month: int, selected_date: str = None, min_
         buttons.append(week_buttons)
     
     # Кнопка назад
-    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="hotels:back_from_calendar")])
-    
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data=back_callback)])
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -149,8 +150,8 @@ def convert_price(amount: float, from_currency: str, to_currency: str) -> float:
     # Курсы относительно USD
     rates = {
         "usd": 1.0,
-        "rub": 97.0,
-        "peso": 58.0
+        "rub": 78.9,
+        "peso": 58.8
     }
     
     # Конвертируем в USD, затем в целевую валюту

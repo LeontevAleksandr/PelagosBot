@@ -1,0 +1,211 @@
+"""Обработчики флоу трансферов"""
+from aiogram import Router, F
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
+
+from states.user_states import UserStates
+from keyboards import get_islands_keyboard, get_share_contact_keyboard, get_back_to_main_keyboard
+from utils.texts import (
+    get_transfers_intro_text,
+    get_transfer_card_text,
+    get_transfer_booking_text
+)
+from utils.data_loader import data_loader
+from utils.contact_handler import contact_handler
+
+router = Router()
+
+
+# ========== Старт флоу трансферов ==========
+
+@router.callback_query(F.data == "main:transfers")
+async def start_transfers_flow(callback: CallbackQuery, state: FSMContext):
+    """Начало флоу трансферов"""
+    await callback.answer()
+
+    data = await state.get_data()
+    user_name = data.get("user_name", "Друг")
+
+    await callback.message.edit_text(
+        get_transfers_intro_text(user_name),
+        reply_markup=get_islands_keyboard()
+    )
+
+    await state.set_state(UserStates.TRANSFERS_SELECT_ISLAND)
+
+
+# ========== Выбор острова ==========
+
+@router.callback_query(UserStates.TRANSFERS_SELECT_ISLAND, F.data.startswith("island:"))
+async def select_transfer_island(callback: CallbackQuery, state: FSMContext):
+    """Выбор острова для трансфера"""
+    await callback.answer()
+
+    island = callback.data.split(":")[1]
+
+    # Получаем трансферы для этого острова
+    transfers = data_loader.get_transfers_by_island(island)
+
+    if not transfers:
+        await callback.message.edit_text(
+            "😔 К сожалению, для выбранного направления трансферы пока недоступны.\n\nПопробуйте другой остров или свяжитесь с нашими менеджерами.",
+            reply_markup=get_back_to_main_keyboard()
+        )
+        return
+
+    # Сохраняем данные
+    await state.update_data(
+        transfers=transfers,
+        current_transfer_index=0,
+        selected_island=island
+    )
+
+    # Показываем первый трансфер с запросом количества людей
+    await callback.message.edit_text(
+        "Введите количество человек, включая детей после 2х лет:",
+        reply_markup=get_back_to_main_keyboard()
+    )
+
+    await state.set_state(UserStates.TRANSFERS_INPUT_PEOPLE)
+
+
+# ========== Ввод количества людей ==========
+
+@router.message(UserStates.TRANSFERS_INPUT_PEOPLE, F.text)
+async def input_people_count(message: Message, state: FSMContext):
+    """Обработка ввода количества людей"""
+    try:
+        people_count = int(message.text.strip())
+
+        if people_count < 1 or people_count > 50:
+            await message.answer(
+                "❌ Пожалуйста, введите корректное количество человек (от 1 до 50):",
+                reply_markup=get_back_to_main_keyboard()
+            )
+            return
+
+        # Сохраняем количество людей
+        await state.update_data(people_count=people_count)
+
+        # Удаляем сообщение пользователя
+        try:
+            await message.delete()
+        except:
+            pass
+
+        # Показываем список трансферов
+        await show_transfer_card(message, state, 0)
+
+        await state.set_state(UserStates.TRANSFERS_SHOW_RESULTS)
+
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите число:",
+            reply_markup=get_back_to_main_keyboard()
+        )
+
+
+# ========== Показ карточки трансфера ==========
+
+async def show_transfer_card(message: Message, state: FSMContext, index: int):
+    """Показать карточку трансфера"""
+    data = await state.get_data()
+    transfers = data.get("transfers", [])
+    people_count = data.get("people_count", 1)
+
+    if not transfers or index >= len(transfers):
+        return
+
+    transfer = transfers[index]
+    card_text = get_transfer_card_text(transfer, people_count)
+
+    # Формируем клавиатуру
+    buttons = []
+
+    # Кнопка бронирования
+    buttons.append([InlineKeyboardButton(text="✅ Забронировать", callback_data=f"transfer_book:{transfer['id']}")])
+
+    # Навигация
+    nav_buttons = []
+    if index > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Предыдущий", callback_data=f"transfer_nav:prev:{index}"))
+    if index < len(transfers) - 1:
+        nav_buttons.append(InlineKeyboardButton(text="Следующий ➡️", callback_data=f"transfer_nav:next:{index}"))
+
+    if nav_buttons:
+        buttons.append(nav_buttons)
+
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await message.answer(
+        card_text,
+        reply_markup=keyboard
+    )
+
+
+# ========== Навигация ==========
+
+@router.callback_query(F.data.startswith("transfer_nav:"))
+async def navigate_transfers(callback: CallbackQuery, state: FSMContext):
+    """Навигация по трансферам"""
+    await callback.answer()
+
+    parts = callback.data.split(":")
+    direction = parts[1]
+    current_index = int(parts[2])
+
+    new_index = current_index - 1 if direction == "prev" else current_index + 1
+
+    await state.update_data(current_transfer_index=new_index)
+
+    # Удаляем текущее сообщение
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Показываем новый трансфер
+    await show_transfer_card(callback.message, state, new_index)
+
+
+# ========== Бронирование ==========
+
+@router.callback_query(F.data.startswith("transfer_book:"))
+async def book_transfer(callback: CallbackQuery, state: FSMContext):
+    """Бронирование трансфера"""
+    await callback.answer()
+
+    transfer_id = callback.data.split(":")[1]
+    transfer = data_loader.get_transfer_by_id(transfer_id)
+
+    if not transfer:
+        return
+
+    data = await state.get_data()
+    people_count = data.get("people_count", 1)
+
+    await state.update_data(selected_transfer_id=transfer_id)
+
+    # Показываем подтверждение и запрос контакта
+    await callback.message.answer(
+        get_transfer_booking_text(transfer["name"], people_count),
+        reply_markup=get_share_contact_keyboard()
+    )
+
+    await state.set_state(UserStates.SHARE_CONTACT)
+
+
+# ========== Обработка контактов ==========
+
+@router.message(UserStates.SHARE_CONTACT, F.text)
+async def process_transfer_phone(message: Message, state: FSMContext):
+    """Обработка номера телефона для трансферов"""
+    await contact_handler.process_text_phone(message, state)
+
+
+@router.message(UserStates.SHARE_CONTACT, F.contact)
+async def process_transfer_contact(message: Message, state: FSMContext):
+    """Обработка контакта для трансферов"""
+    await contact_handler.process_contact(message, state)

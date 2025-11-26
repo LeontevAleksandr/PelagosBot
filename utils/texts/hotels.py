@@ -79,3 +79,34 @@ def get_booking_confirmation_text(room_count: int, room_name: str, hotel_name: s
 CONTACT_RECEIVED = """✅ Спасибо! Ваши данные получены.
 
 Наш менеджер свяжется с вами в ближайшее время для подтверждения бронирования."""
+
+
+def get_hotels_list_text(island: str, stars: str, price: str, check_in: str, check_out: str, hotels_count: int) -> str:
+    """Текст для списка всех отелей"""
+    return f"""📋 **Список всех найденных отелей**
+
+📍 Остров: {island}
+⭐ Звездность: {stars if stars else 'Не указана'}
+💵 Цена: {price}
+📅 Дата: {check_in} - {check_out}
+
+Найдено отелей: {hotels_count}
+
+Выберите отель для просмотра:"""
+
+
+def get_hotel_list_item_text(hotel: dict, rooms: list) -> str:
+    """Форматирование отеля в списке"""
+    if not rooms:
+        return hotel['name']
+    
+    prices = [room['price'] for room in rooms]
+    min_price = min(prices)
+    max_price = max(prices)
+    
+    stars = "⭐" * hotel['stars']
+    
+    if min_price == max_price:
+        return f"{hotel['name']} {stars} (${min_price})"
+    else:
+        return f"{hotel['name']} {stars} (${min_price} - ${max_price})"

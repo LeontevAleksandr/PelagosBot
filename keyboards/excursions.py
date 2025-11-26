@@ -13,12 +13,18 @@ def get_excursion_type_keyboard() -> InlineKeyboardMarkup:
     return keyboard
 
 
-def get_group_excursion_keyboard(excursion_id: str, has_prev: bool, has_next: bool, current_date: str) -> InlineKeyboardMarkup:
+def get_group_excursion_keyboard(excursion_id: str, has_prev: bool, has_next: bool, current_date: str, expanded: bool = False) -> InlineKeyboardMarkup:
     """Клавиатура для групповой экскурсии"""
     buttons = []
     
     # Кнопка присоединиться
     buttons.append([InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"exc_join:{excursion_id}")])
+    
+    # Кнопка развернуть/свернуть
+    if expanded:
+        buttons.append([InlineKeyboardButton(text="Свернуть ▲", callback_data=f"exc_collapse:{excursion_id}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_expand:{excursion_id}")])
     
     # Навигация по датам
     nav_buttons = []
@@ -45,12 +51,18 @@ def get_no_group_excursions_keyboard() -> InlineKeyboardMarkup:
     return keyboard
 
 
-def get_private_excursion_keyboard(excursion_id: str, current_index: int, total: int) -> InlineKeyboardMarkup:
+def get_private_excursion_keyboard(excursion_id: str, current_index: int, total: int, expanded: bool = False, excursion_url: str = None) -> InlineKeyboardMarkup:
     """Клавиатура для индивидуальной экскурсии"""
     buttons = []
     
     # Кнопка бронирования
     buttons.append([InlineKeyboardButton(text="✅ Забронировать", callback_data=f"exc_book:{excursion_id}")])
+    
+    # Кнопка развернуть/свернуть
+    if expanded:
+        buttons.append([InlineKeyboardButton(text="Свернуть ▲", callback_data=f"exc_private_collapse:{excursion_id}:{current_index}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_private_expand:{excursion_id}:{current_index}")])
     
     # Навигация
     nav_buttons = []
@@ -62,7 +74,12 @@ def get_private_excursion_keyboard(excursion_id: str, current_index: int, total:
     if nav_buttons:
         buttons.append(nav_buttons)
     
-    buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", callback_data=f"exc_view:{excursion_id}")])
+    # Кнопка "Смотреть экскурсию" - URL или заглушка
+    if excursion_url:
+        buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", url=excursion_url)])
+    else:
+        buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", callback_data=f"exc_view:{excursion_id}")])
+    
     buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
     
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -99,15 +116,21 @@ def get_companions_list_keyboard(month: int, year: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_companions_excursion_keyboard(excursion_id: str) -> InlineKeyboardMarkup:
+def get_companions_excursion_keyboard(excursion_id: str, excursion_url: str = None) -> InlineKeyboardMarkup:
     """Клавиатура для экскурсии с поиском попутчиков"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [InlineKeyboardButton(text="✅ Записаться", callback_data=f"comp_join:{excursion_id}")],
         [InlineKeyboardButton(text="➕ Создать свою заявку", callback_data="comp_create:start")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="comp_back:list")],
-        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
-    ])
-    return keyboard
+    ]
+    
+    # Кнопка "Смотреть экскурсию"
+    if excursion_url:
+        buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", url=excursion_url)])
+    
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="comp_back:list")])
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_companions_create_agree_keyboard() -> InlineKeyboardMarkup:
@@ -117,3 +140,22 @@ def get_companions_create_agree_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🔙 Назад", callback_data="comp_back:list")]
     ])
     return keyboard
+
+
+def get_companions_select_excursion_keyboard(excursions: list) -> InlineKeyboardMarkup:
+    """Клавиатура выбора экскурсии при создании заявки попутчика"""
+    buttons = []
+
+    # Добавляем кнопку для каждой экскурсии
+    for exc in excursions:
+        # Обрезаем длинные названия для кнопок
+        button_text = exc['name'][:40] + "..." if len(exc['name']) > 40 else exc['name']
+        buttons.append([InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"comp_select_exc:{exc['id']}"
+        )])
+
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="comp_back:list")])
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

@@ -16,7 +16,7 @@
       "stars": 4,
       "rating": 4.5,
       "room_type": "Deluxe",
-      "photo_url": "https://example.com/hotel1.jpg",
+      "photo": "hotels/boracay_mandarin.jpg",
       "rooms": [
         {"id": "room_1", "name": "Premier Room", "price": 117, "guests": 2},
         {"id": "room_2", "name": "Premier Deluxe Sea View", "price": 148, "guests": 2},
@@ -37,7 +37,7 @@
       "stars": 4,
       "rating": 4.3,
       "room_type": "Superior",
-      "photo_url": "https://example.com/hotel2.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_10", "name": "Standard Room", "price": 125, "guests": 2},
         {"id": "room_11", "name": "Superior Room", "price": 145, "guests": 2},
@@ -54,7 +54,7 @@
       "stars": 4,
       "rating": 4.6,
       "room_type": "Deluxe",
-      "photo_url": "https://example.com/hotel3.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_15", "name": "Garden View", "price": 130, "guests": 2},
         {"id": "room_16", "name": "Pool View", "price": 155, "guests": 2},
@@ -70,7 +70,7 @@
       "stars": 4,
       "rating": 4.4,
       "room_type": "Superior",
-      "photo_url": "https://example.com/hotel4.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_19", "name": "Classic Room", "price": 120, "guests": 2},
         {"id": "room_20", "name": "Superior Garden", "price": 140, "guests": 2},
@@ -86,7 +86,7 @@
       "stars": 5,
       "rating": 4.7,
       "room_type": "Superior",
-      "photo_url": "https://example.com/hotel5.jpg",
+      "photo": "hotels/cebu_grand.jpg",
       "rooms": [
         {"id": "room_23", "name": "Standard Room", "price": 95, "guests": 2},
         {"id": "room_24", "name": "Superior Room", "price": 125, "guests": 2},
@@ -103,7 +103,7 @@
       "stars": 5,
       "rating": 4.5,
       "room_type": "Deluxe",
-      "photo_url": "https://example.com/hotel6.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_28", "name": "City View", "price": 110, "guests": 2},
         {"id": "room_29", "name": "Premier Room", "price": 140, "guests": 2},
@@ -119,7 +119,7 @@
       "stars": 3,
       "rating": 4.2,
       "room_type": "Standard",
-      "photo_url": "https://example.com/hotel7.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_32", "name": "Economy Room", "price": 65, "guests": 2},
         {"id": "room_33", "name": "Standard Room", "price": 85, "guests": 2},
@@ -134,7 +134,7 @@
       "stars": 3,
       "rating": 4.0,
       "room_type": "Standard",
-      "photo_url": "https://example.com/hotel8.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_35", "name": "Basic Room", "price": 60, "guests": 2},
         {"id": "room_36", "name": "Standard Twin", "price": 75, "guests": 2},
@@ -149,7 +149,7 @@
       "stars": 4,
       "rating": 4.6,
       "room_type": "Villa",
-      "photo_url": "https://example.com/hotel9.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_38", "name": "Garden Villa", "price": 135, "guests": 2},
         {"id": "room_39", "name": "Beach Villa", "price": 170, "guests": 2},
@@ -165,7 +165,7 @@
       "stars": 5,
       "rating": 4.8,
       "room_type": "Bungalow",
-      "photo_url": "https://example.com/hotel10.jpg",
+      "photo": null,
       "rooms": [
         {"id": "room_42", "name": "Garden Bungalow", "price": 150, "guests": 2},
         {"id": "room_43", "name": "Beach Bungalow", "price": 195, "guests": 2},
@@ -186,8 +186,10 @@
       "price_usd": 165,
       "price_rub": 13650,
       "price_peso": 9950,
-      "date": "2025-11-27",
+      "date": "2025-11-30",
       "time": "05:00",
+      "photo": "excursions/whale_sharks.jpg",
+      "url": "https://pelagostours.com/excursions/whale-sharks",
       "description": "Захватывающая экскурсия с посещением самых популярных мест острова Себу.",
       "companions_count": 3
     },
@@ -200,6 +202,8 @@
       "price_usd": 75,
       "price_rub": 7275,
       "price_peso": 4350,
+      "photo": null,
+      "url": "https://pelagostours.com/excursions/diving",
       "description": "Профессиональный дайвинг с русскоговорящим инструктором."
     },
     {
@@ -211,8 +215,9 @@
       "price_usd": 120,
       "price_rub": 9960,
       "price_peso": 7260,
-      "date": "2025-11-28",
+      "date": "2025-11-30",
       "time": "04:00",
+      "url": null,
       "description": "Насыщенная экскурсия с активным отдыхом и плаванием с китовыми акулами.",
       "companions_count": 2
     },
@@ -225,7 +230,7 @@
       "price_usd": 100,
       "price_rub": 8300,
       "price_peso": 6050,
-      "date": "2025-11-29",
+      "date": "2025-11-30",
       "time": "06:00",
       "description": "Данная экскурсия предоставляет возможность посетить все визитные карточки Бохола всего за один день.",
       "companions_count": 1
@@ -286,7 +291,7 @@
       "price_usd": 130,
       "price_rub": 10790,
       "price_peso": 7865,
-      "date": "2025-11-27",
+      "date": "2025-11-30",
       "time": "08:00",
       "description": "Обзорная экскурсия по главным достопримечательностям Бохоля.",
       "companions_count": 5
@@ -300,7 +305,7 @@
       "price_usd": 110,
       "price_rub": 9130,
       "price_peso": 6655,
-      "date": "2025-11-27",
+      "date": "2025-11-30",
       "time": "06:00",
       "description": "Экстремальное приключение с прыжками в водопады.",
       "companions_count": 2
@@ -325,10 +330,170 @@
       "price_usd": 135,
       "price_rub": 11205,
       "price_peso": 8173,
-      "date": "2025-12-05",
+      "date": "2025-11-30",
       "time": "07:00",
       "description": "Комплексная экскурсия с активными видами спорта.",
       "companions_count": 4
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg_1",
+      "name": "Филиппинский Микс: Манила + Боракай + Себу",
+      "start_date": "2025-12-15",
+      "end_date": "2025-12-22",
+      "duration": 8,
+      "islands": "Манила, Боракай, Себу",
+      "price_usd": 1200,
+      "price_rub": 118800,
+      "price_peso": 72600,
+      "photo": null,
+      "url": "https://pelagostours.com/packages/mix-tour",
+      "description": "Комбинированный тур по трём популярным направлениям Филиппин. Вы увидите столицу Манилу, райский остров Боракай с белоснежными пляжами и насыщенный экскурсиями Себу. Идеально для первого знакомства со страной!"
+    },
+    {
+      "id": "pkg_2",
+      "name": "Бохоль + Палаван: Природные чудеса",
+      "start_date": "2025-12-10",
+      "end_date": "2025-12-17",
+      "duration": 8,
+      "islands": "Бохоль, Палаван",
+      "price_usd": 1350,
+      "price_rub": 133650,
+      "price_peso": 81675,
+      "photo": null,
+      "url": "https://pelagostours.com/packages/nature-tour",
+      "description": "Откройте для себя природные чудеса Филиппин! Шоколадные холмы и тарсиеры на Бохоле, подземная река и лагуны Эль Нидо на Палаване. Тур для любителей природы и активного отдыха."
+    },
+    {
+      "id": "pkg_3",
+      "name": "Романтический тур: Боракай + Палаван",
+      "start_date": "2025-12-20",
+      "end_date": "2025-12-27",
+      "duration": 8,
+      "islands": "Боракай, Палаван",
+      "price_usd": 1450,
+      "price_rub": 143550,
+      "price_peso": 87725,
+      "photo": null,
+      "url": "https://pelagostours.com/packages/romantic-tour",
+      "description": "Идеальный романтический тур для пар. Белоснежные пляжи Боракая, закаты на яхте, уединённые лагуны Палавана. Включены романтические ужины и приватные экскурсии."
+    },
+    {
+      "id": "pkg_4",
+      "name": "Гранд тур: Все звёзды Филиппин",
+      "start_date": "2025-12-05",
+      "end_date": "2025-12-16",
+      "duration": 12,
+      "islands": "Манила, Боракай, Себу, Бохоль, Палаван",
+      "price_usd": 2100,
+      "price_rub": 207900,
+      "price_peso": 127050,
+      "photo": null,
+      "url": "https://pelagostours.com/packages/grand-tour",
+      "description": "Максимально насыщенный тур по всем ключевым островам! 12 дней приключений: столица, пляжи, дайвинг, экскурсии, природные достопримечательности. Для тех, кто хочет увидеть всё!"
+    },
+    {
+      "id": "pkg_5",
+      "name": "Активный отдых: Себу + Бохоль",
+      "start_date": "2025-12-12",
+      "end_date": "2025-12-18",
+      "duration": 7,
+      "islands": "Себу, Бохоль",
+      "price_usd": 980,
+      "price_rub": 97020,
+      "price_peso": 59290,
+      "photo": null,
+      "url": "https://pelagostours.com/packages/active-tour",
+      "description": "Тур для любителей активного отдыха! Дайвинг, снорклинг с китовыми акулами, каньонинг, ATV, зиплайн. Каждый день - новое приключение!"
+    },
+    {
+      "id": "pkg_6",
+      "name": "Райский Палаван",
+      "start_date": "2025-12-18",
+      "end_date": "2025-12-24",
+      "duration": 7,
+      "islands": "Палаван",
+      "price_usd": 1150,
+      "price_rub": 113850,
+      "price_peso": 69575,
+      "photo": null,
+      "url": "https://pelagostours.com/packages/palawan-tour",
+      "description": "Полное погружение в красоты Палавана. Эль Нидо, подземная река, островной хоппинг, лагуны и пляжи. Считается самым красивым местом Филиппин!"
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer_1",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "name": "Трансфер Аэропорт Калибо - Отель Боракай",
+      "description": "Комфортабельный трансфер от аэропорта Калибо до вашего отеля на Боракае. Включает автобус, паром и трицикл.",
+      "base_price_usd": 25,
+      "price_per_person_usd": 25
+    },
+    {
+      "id": "transfer_2",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "name": "Трансфер Аэропорт Катиклан - Отель Боракай",
+      "description": "Быстрый трансфер от аэропорта Катиклан до вашего отеля. Включает паром и трицикл.",
+      "base_price_usd": 15,
+      "price_per_person_usd": 15
+    },
+    {
+      "id": "transfer_3",
+      "island": "cebu",
+      "island_name": "Себу",
+      "name": "Трансфер Аэропорт - Город Себу",
+      "description": "Трансфер от международного аэропорта Мактан до отелей в городе Себу или на острове Мактан.",
+      "base_price_usd": 20,
+      "price_per_person_usd": 20
+    },
+    {
+      "id": "transfer_4",
+      "island": "cebu",
+      "island_name": "Себу",
+      "name": "Трансфер Себу - Моалбоал",
+      "description": "Комфортный переезд из города Себу в Моалбоал (3-4 часа). Идеально для дайверов.",
+      "base_price_usd": 40,
+      "price_per_person_usd": 40
+    },
+    {
+      "id": "transfer_5",
+      "island": "manila",
+      "island_name": "Манила",
+      "name": "Трансфер Аэропорт NAIA - Отель Манила",
+      "description": "Трансфер от международного аэропорта Ниноя Акино до вашего отеля в Маниле или Макати.",
+      "base_price_usd": 18,
+      "price_per_person_usd": 18
+    },
+    {
+      "id": "transfer_6",
+      "island": "bohol",
+      "island_name": "Бохоль",
+      "name": "Трансфер Аэропорт Тагбиларан - Отель Панглао",
+      "description": "Трансфер от аэропорта Тагбиларан до пляжей острова Панглао.",
+      "base_price_usd": 22,
+      "price_per_person_usd": 22
+    },
+    {
+      "id": "transfer_7",
+      "island": "palawan",
+      "island_name": "Палаван",
+      "name": "Трансфер Аэропорт Пуэрто-Принцесса - Отель",
+      "description": "Трансфер от аэропорта Пуэрто-Принцесса до вашего отеля в городе.",
+      "base_price_usd": 20,
+      "price_per_person_usd": 20
+    },
+    {
+      "id": "transfer_8",
+      "island": "palawan",
+      "island_name": "Палаван",
+      "name": "Трансфер Пуэрто-Принцесса - Эль Нидо",
+      "description": "Переезд из Пуэрто-Принцесса в Эль Нидо (5-6 часов). Живописная дорога вдоль побережья.",
+      "base_price_usd": 60,
+      "price_per_person_usd": 60
     }
   ]
 }
