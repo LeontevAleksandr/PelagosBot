@@ -10,7 +10,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🏝 2. Экскурсии", callback_data="main:excursions")],
         [InlineKeyboardButton(text="📦 3. Пакетные туры", callback_data="main:packages")],
         [InlineKeyboardButton(text="🚗 4. Трансферы", callback_data="main:transfers")],
-        [InlineKeyboardButton(text="➕ 5. Другое", callback_data="main:other")]
+        [InlineKeyboardButton(text="🛒 Мои заказы", callback_data="menu:orders")]
     ])
     return keyboard
 

@@ -12,6 +12,7 @@ from utils.texts import (
 )
 from utils.data_loader import data_loader
 from utils.contact_handler import contact_handler
+from utils.order_manager import order_manager
 
 router = Router()
 
@@ -174,7 +175,7 @@ async def navigate_transfers(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("transfer_book:"))
 async def book_transfer(callback: CallbackQuery, state: FSMContext):
-    """Бронирование трансфера"""
+    """Бронирование трансфера - показываем две кнопки"""
     await callback.answer()
 
     transfer_id = callback.data.split(":")[1]
@@ -188,9 +189,54 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(selected_transfer_id=transfer_id)
 
-    # Показываем подтверждение и запрос контакта
+    # Показываем подтверждение с двумя кнопками
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="transfer:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="transfer:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await callback.message.answer(
         get_transfer_booking_text(transfer["name"], people_count),
+        reply_markup=keyboard
+    )
+
+
+@router.callback_query(F.data == "transfer:add_to_order")
+async def add_transfer_to_order(callback: CallbackQuery, state: FSMContext):
+    """Добавить трансфер в заказ"""
+    await callback.answer("Добавлено в заказ! 🛒")
+
+    data = await state.get_data()
+    transfer_id = data.get("selected_transfer_id")
+    people_count = data.get("people_count", 1)
+    transfer = data_loader.get_transfer_by_id(transfer_id)
+
+    if not transfer:
+        return
+
+    updated_data = order_manager.add_transfer(data, transfer, people_count)
+    await state.update_data(order=updated_data["order"])
+
+    from handlers.main_menu import show_main_menu
+    await show_main_menu(callback.message, state)
+
+
+@router.callback_query(F.data == "transfer:book_now")
+async def book_transfer_now(callback: CallbackQuery, state: FSMContext):
+    """Забронировать трансфер сейчас - запрос контакта"""
+    await callback.answer()
+
+    data = await state.get_data()
+    transfer_id = data.get("selected_transfer_id")
+    transfer = data_loader.get_transfer_by_id(transfer_id)
+
+    if not transfer:
+        return
+
+    await callback.message.edit_text(
+        "Для бронирования трансфера поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
         reply_markup=get_share_contact_keyboard()
     )
 
@@ -202,10 +248,18 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_transfer_phone(message: Message, state: FSMContext):
     """Обработка номера телефона для трансферов"""
-    await contact_handler.process_text_phone(message, state)
+    success = await contact_handler.process_text_phone(message, state)
+    if success:
+        data = await state.get_data()
+        updated_data = order_manager.clear_order(data)
+        await state.update_data(order=updated_data["order"])
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_transfer_contact(message: Message, state: FSMContext):
     """Обработка контакта для трансферов"""
-    await contact_handler.process_contact(message, state)
+    success = await contact_handler.process_contact(message, state)
+    if success:
+        data = await state.get_data()
+        updated_data = order_manager.clear_order(data)
+        await state.update_data(order=updated_data["order"])

@@ -16,6 +16,7 @@
       "stars": 4,
       "rating": 4.5,
       "room_type": "Deluxe",
+      "rate": 4.1,
       "photo": "hotels/boracay_mandarin.jpg",
       "rooms": [
         {"id": "room_1", "name": "Premier Room", "price": 117, "guests": 2},

@@ -15,6 +15,7 @@ from utils.helpers import get_calendar_keyboard, format_date
 from utils.data_loader import data_loader
 from utils.media_manager import media_manager
 from utils.contact_handler import contact_handler
+from utils.order_manager import order_manager
 
 router = Router()
 
@@ -185,25 +186,69 @@ async def navigate_packages(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("pkg_book:"))
 async def book_package(callback: CallbackQuery, state: FSMContext):
-    """Бронирование пакетного тура"""
+    """Бронирование пакетного тура - показываем две кнопки"""
     await callback.answer()
-    
+
     package_id = callback.data.split(":")[1]
     package = data_loader.get_package_by_id(package_id)
-    
+
     if not package:
         return
-    
+
     await state.update_data(selected_package_id=package_id)
-    
-    # Показываем подтверждение и запрос контакта
+
+    # Показываем подтверждение с двумя кнопками
     date_str = f"{format_date(package['start_date'])} - {format_date(package['end_date'])}"
-    
+
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="pkg:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="pkg:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await callback.message.answer(
         get_package_booking_text(package["name"], date_str),
+        reply_markup=keyboard
+    )
+
+
+@router.callback_query(F.data == "pkg:add_to_order")
+async def add_package_to_order(callback: CallbackQuery, state: FSMContext):
+    """Добавить пакетный тур в заказ"""
+    await callback.answer("Добавлено в заказ! 🛒")
+
+    data = await state.get_data()
+    package_id = data.get("selected_package_id")
+    package = data_loader.get_package_by_id(package_id)
+
+    if not package:
+        return
+
+    updated_data = order_manager.add_package(data, package)
+    await state.update_data(order=updated_data["order"])
+
+    from handlers.main_menu import show_main_menu
+    await show_main_menu(callback.message, state)
+
+
+@router.callback_query(F.data == "pkg:book_now")
+async def book_package_now(callback: CallbackQuery, state: FSMContext):
+    """Забронировать пакетный тур сейчас - запрос контакта"""
+    await callback.answer()
+
+    data = await state.get_data()
+    package_id = data.get("selected_package_id")
+    package = data_loader.get_package_by_id(package_id)
+
+    if not package:
+        return
+
+    await callback.message.edit_text(
+        "Для бронирования пакетного тура поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
         reply_markup=get_share_contact_keyboard()
     )
-    
+
     await state.set_state(UserStates.SHARE_CONTACT)
 
 
@@ -212,10 +257,18 @@ async def book_package(callback: CallbackQuery, state: FSMContext):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_package_phone(message: Message, state: FSMContext):
     """Обработка номера телефона для пакетных туров"""
-    await contact_handler.process_text_phone(message, state)
+    success = await contact_handler.process_text_phone(message, state)
+    if success:
+        data = await state.get_data()
+        updated_data = order_manager.clear_order(data)
+        await state.update_data(order=updated_data["order"])
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_package_contact(message: Message, state: FSMContext):
     """Обработка контакта для пакетных туров"""
-    await contact_handler.process_contact(message, state)
+    success = await contact_handler.process_contact(message, state)
+    if success:
+        data = await state.get_data()
+        updated_data = order_manager.clear_order(data)
+        await state.update_data(order=updated_data["order"])

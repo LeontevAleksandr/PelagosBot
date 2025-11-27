@@ -11,7 +11,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN
 
 # Импорт роутеров
-from handlers import start, main_menu, support, search, hotels, excursions, packages, transfers
+from handlers import start, main_menu, support, search, hotels, excursions, packages, transfers, order
 
 # Настройка логирования
 logging.basicConfig(
@@ -42,6 +42,7 @@ async def main():
     # Регистрация роутеров (порядок важен!)
     dp.include_router(start.router)
     dp.include_router(main_menu.router)
+    dp.include_router(order.router)  # Управление заказом/корзиной
     dp.include_router(hotels.router)  # Флоу отелей
     dp.include_router(excursions.router)  # Флоу экскурсий
     dp.include_router(packages.router)  # Флоу пакетных туров

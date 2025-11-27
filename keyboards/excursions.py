@@ -44,7 +44,7 @@ def get_group_excursion_keyboard(excursion_id: str, has_prev: bool, has_next: bo
 def get_no_group_excursions_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура когда нет групповых экскурсий"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔍 Подать заявку на поиск попутчиков", callback_data="exc_type:companions")],
+        #[InlineKeyboardButton(text="🔍 Подать заявку на поиск попутчиков", callback_data="exc_type:companions")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")],
         [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
     ])

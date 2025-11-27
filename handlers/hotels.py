@@ -46,6 +46,7 @@ from utils.helpers import (
 from utils.data_loader import data_loader
 from utils.media_manager import get_hotel_photo
 from utils.contact_handler import contact_handler
+from utils.order_manager import order_manager
 
 router = Router()
 
@@ -496,8 +497,11 @@ async def process_room_count(message: Message, state: FSMContext):
         
         hotel = data_loader.get_hotel_by_id(hotel_id)
         room = data_loader.get_room_by_id(hotel_id, room_id)
-        
-        # Показываем подтверждение
+
+        # Сохраняем количество комнат
+        await state.update_data(room_count=room_count)
+
+        # Показываем подтверждение с двумя кнопками
         confirmation_text = get_booking_confirmation_text(
             room_count,
             room["name"],
@@ -505,19 +509,74 @@ async def process_room_count(message: Message, state: FSMContext):
             check_in,
             check_out
         )
-        
+
+        # Клавиатура с двумя вариантами
+        buttons = [
+            [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="hotel:add_to_order")],
+            [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="hotel:book_now")],
+            [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+        ]
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
         await message.answer(
             confirmation_text,
-            reply_markup=get_share_contact_keyboard()
+            reply_markup=keyboard
         )
-        
-        await state.set_state(UserStates.SHARE_CONTACT)
         
     except ValueError:
         await message.answer(
             "❌ Пожалуйста, введите число от 1 до 9",
             reply_markup=get_back_to_main_keyboard()
         )
+
+
+# ========== Добавление в заказ и бронирование ==========
+
+@router.callback_query(F.data == "hotel:add_to_order")
+async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
+    """Добавить отель в заказ"""
+    await callback.answer("Добавлено в заказ! 🛒")
+
+    data = await state.get_data()
+    hotel_id = data.get("selected_hotel_id")
+    room_id = data.get("selected_room_id")
+    room_count = data.get("room_count", 1)
+    check_in = data.get("check_in")
+    check_out = data.get("check_out")
+
+    hotel = data_loader.get_hotel_by_id(hotel_id)
+    room = data_loader.get_room_by_id(hotel_id, room_id)
+
+    # Рассчитываем количество ночей
+    from datetime import datetime
+    check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
+    check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
+    nights = (check_out_date - check_in_date).days
+
+    # Добавляем в заказ
+    updated_data = order_manager.add_hotel(data, hotel, room, nights * room_count)
+    await state.update_data(order=updated_data["order"])
+
+    # Возвращаем в главное меню
+    from handlers.main_menu import show_main_menu
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await show_main_menu(callback.message, state)
+
+
+@router.callback_query(F.data == "hotel:book_now")
+async def book_hotel_now(callback: CallbackQuery, state: FSMContext):
+    """Забронировать отель сейчас (запросить контакт)"""
+    await callback.answer()
+
+    await callback.message.edit_text(
+        "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
+        reply_markup=get_share_contact_keyboard()
+    )
+
+    await state.set_state(UserStates.SHARE_CONTACT)
 
 
 # ========== Кнопки управления ==========

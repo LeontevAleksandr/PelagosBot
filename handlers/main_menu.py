@@ -2,6 +2,8 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
+from aiogram.exceptions import TelegramBadRequest
+from handlers.order import view_order
 
 from keyboards import (
     get_menu_keyboard, 
@@ -34,23 +36,13 @@ async def show_menu(message: Message):
 # ========== Callback handlers ==========
 
 @router.callback_query(F.data == "menu:orders")
-async def show_my_orders(callback: CallbackQuery):
-    """Показать заказы пользователя"""
+async def show_my_orders(callback: CallbackQuery, state: FSMContext):
+    """Показать заказы пользователя (корзина)"""
     await callback.answer()
+
+    # Перенаправляем на просмотр корзины
     
-    user_id = callback.from_user.id
-    orders = await get_orders_for_user(user_id)
-    
-    if not orders:
-        text = MY_ORDERS_EMPTY
-    else:
-        text = MY_ORDERS_TEXT
-        # TODO: Добавить форматирование списка заказов
-    
-    await callback.message.edit_text(
-        text,
-        reply_markup=get_back_to_main_keyboard()
-    )
+    await view_order(callback, state)
 
 
 @router.callback_query(F.data == "back:main")
@@ -62,20 +54,27 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     user_name = data.get("user_name", "Друг")
     
-    await callback.message.edit_text(
-        get_main_menu_text(user_name),
-        reply_markup=get_main_menu_keyboard()
-    )
+    try:
+        await callback.message.edit_text(
+            get_main_menu_text(user_name),
+            reply_markup=get_main_menu_keyboard()
+        )
+    except TelegramBadRequest:
+        # Message may be a media (photo) without text — delete and send new message
+        try:
+            await callback.message.delete()
+        except:
+            pass
+
+        await callback.message.answer(
+            get_main_menu_text(user_name),
+            reply_markup=get_main_menu_keyboard()
+        )
     
     await state.set_state(UserStates.MAIN_MENU)
 
 
 # ========== Заглушки для основных разделов ==========
-
-# Отели реализованы в handlers/hotels.py
-# Экскурсии реализованы в handlers/excursions.py
-# Пакетные туры реализованы в handlers/packages.py
-# Трансферы реализованы в handlers/transfers.py
 
 @router.callback_query(F.data == "main:other")
 async def select_other(callback: CallbackQuery):

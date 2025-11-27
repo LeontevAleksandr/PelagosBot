@@ -46,6 +46,7 @@ from utils.helpers import (
 from utils.data_loader import data_loader
 from utils.media_manager import get_excursion_photo
 from utils.contact_handler import contact_handler
+from utils.order_manager import order_manager
 
 router = Router()
 
@@ -375,21 +376,27 @@ async def navigate_group_excursions(callback: CallbackQuery, state: FSMContext):
 async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
     """Присоединиться к групповой экскурсии"""
     await callback.answer()
-    
+
     excursion_id = callback.data.split(":")[1]
     excursion = data_loader.get_excursion_by_id(excursion_id)
-    
+
     if not excursion:
         return
-    
-    await state.update_data(selected_excursion_id=excursion_id)
-    
+
+    await state.update_data(selected_excursion_id=excursion_id, excursion_people_count=1)
+
+    # Клавиатура с двумя вариантами
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="exc_group:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="exc_group:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await callback.message.answer(
         get_excursion_join_text(excursion["name"]),
-        reply_markup=get_share_contact_keyboard()
+        reply_markup=keyboard
     )
-    
-    await state.set_state(UserStates.SHARE_CONTACT)
 
 
 # ========== ВЕТКА B: Индивидуальные экскурсии ==========
@@ -591,24 +598,32 @@ async def navigate_private_calendar(callback: CallbackQuery):
 async def select_private_date(callback: CallbackQuery, state: FSMContext):
     """Выбор даты для индивидуальной экскурсии"""
     await callback.answer()
-    
+
     date = callback.data.split(":")[1]
-    
+
     data = await state.get_data()
     excursion_id = data.get("selected_excursion_id")
     people_count = data.get("people_count")
-    
+
     excursion = data_loader.get_excursion_by_id(excursion_id)
-    
+
     if not excursion:
         return
-    
+
+    await state.update_data(excursion_people_count=people_count)
+
+    # Клавиатура с двумя вариантами
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="exc_private:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="exc_private:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await callback.message.edit_text(
         get_excursion_booking_text(excursion["name"], people_count, format_date(date)),
-        reply_markup=get_share_contact_keyboard()
+        reply_markup=keyboard
     )
-    
-    await state.set_state(UserStates.SHARE_CONTACT)
 
 
 # ========== ВЕТКА C: Поиск попутчиков ==========
@@ -717,21 +732,27 @@ async def view_companion_excursion(callback: CallbackQuery, state: FSMContext):
 async def join_companion_excursion(callback: CallbackQuery, state: FSMContext):
     """Присоединиться к экскурсии с попутчиками"""
     await callback.answer()
-    
+
     excursion_id = callback.data.split(":")[1]
     excursion = data_loader.get_excursion_by_id(excursion_id)
-    
+
     if not excursion:
         return
-    
-    await state.update_data(selected_excursion_id=excursion_id)
-    
+
+    await state.update_data(selected_excursion_id=excursion_id, excursion_people_count=1)
+
+    # Клавиатура с двумя вариантами
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="exc_companion:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="exc_companion:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await callback.message.answer(
         get_excursion_join_text(excursion["name"]),
-        reply_markup=get_share_contact_keyboard()
+        reply_markup=keyboard
     )
-    
-    await state.set_state(UserStates.SHARE_CONTACT)
 
 
 @router.callback_query(F.data == "comp_back:list")
@@ -889,21 +910,72 @@ async def process_companion_people_count(message: Message, state: FSMContext):
         if not excursion:
             return
         
-        await state.update_data(people_count=people_count)
-        
+        await state.update_data(people_count=people_count, excursion_people_count=people_count)
+
+        # Клавиатура с двумя вариантами
+        buttons = [
+            [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="exc_create:add_to_order")],
+            [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="exc_create:book_now")],
+            [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+        ]
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
         # Показываем подтверждение
         await message.answer(
             get_companions_created_text(excursion["name"], format_date(date), people_count),
-            reply_markup=get_share_contact_keyboard()
+            reply_markup=keyboard
         )
-        
-        await state.set_state(UserStates.SHARE_CONTACT)
         
     except ValueError:
         await message.answer(
             "❌ Пожалуйста, введите корректное число",
             reply_markup=get_back_to_main_keyboard()
         )
+
+
+# ========== Добавление в заказ и бронирование ==========
+
+@router.callback_query(F.data == "exc_group:add_to_order")
+@router.callback_query(F.data == "exc_companion:add_to_order")
+@router.callback_query(F.data == "exc_private:add_to_order")
+@router.callback_query(F.data == "exc_create:add_to_order")
+async def add_excursion_to_order(callback: CallbackQuery, state: FSMContext):
+    """Добавить экскурсию в заказ"""
+    await callback.answer("Добавлено в заказ! 🛒")
+
+    data = await state.get_data()
+    excursion_id = data.get("selected_excursion_id")
+    people_count = data.get("excursion_people_count", 1)
+
+    excursion = data_loader.get_excursion_by_id(excursion_id)
+
+    # Добавляем в заказ
+    updated_data = order_manager.add_excursion(data, excursion, people_count)
+    await state.update_data(order=updated_data["order"])
+
+    # Возвращаем в главное меню
+    from handlers.main_menu import show_main_menu
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await show_main_menu(callback.message, state)
+
+
+@router.callback_query(F.data == "exc_group:book_now")
+@router.callback_query(F.data == "exc_companion:book_now")
+@router.callback_query(F.data == "exc_private:book_now")
+@router.callback_query(F.data == "exc_create:book_now")
+async def book_excursion_now(callback: CallbackQuery, state: FSMContext):
+    """Забронировать экскурсию сейчас (запросить контакт)"""
+    await callback.answer()
+
+    await callback.message.edit_text(
+        "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
+        reply_markup=get_share_contact_keyboard()
+    )
+
+    await state.set_state(UserStates.SHARE_CONTACT)
 
 
 # ========== Обработка контактов для экскурсий ==========
