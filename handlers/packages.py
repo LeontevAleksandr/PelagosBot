@@ -11,7 +11,7 @@ from utils.texts import (
     get_package_card_text,
     get_package_booking_text
 )
-from utils.helpers import get_calendar_keyboard, format_date
+from utils.helpers import get_calendar_keyboard, format_date, send_items_page
 from utils.data_loader import data_loader
 from utils.media_manager import media_manager
 from utils.contact_handler import contact_handler
@@ -135,9 +135,11 @@ async def show_package_card(message: Message, state: FSMContext, index: int):
     # Кнопка "Смотреть тур"
     if package.get("url"):
         buttons.append([InlineKeyboardButton(text="🔍 Смотреть тур", url=package["url"])])
-    
+
+    # Кнопка показать все страницей
+    buttons.append([InlineKeyboardButton(text="📋 Показать все страницей", callback_data="pkg:show_all")])
     buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
-    
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     
     # Пытаемся получить фото
@@ -155,6 +157,46 @@ async def show_package_card(message: Message, state: FSMContext, index: int):
             card_text,
             reply_markup=keyboard
         )
+
+
+async def send_packages_cards_page(message: Message, state: FSMContext, page: int):
+    """Отправить страницу с пакетными турами (по 5 штук)"""
+    data = await state.get_data()
+    packages = data.get("packages", [])
+
+    if not packages:
+        return
+
+    # Функция форматирования карточки
+    def format_card(package):
+        return get_package_card_text(package)
+
+    # Функция создания клавиатуры
+    def get_keyboard(package):
+        buttons = [
+            [InlineKeyboardButton(text="✅ Забронировать", callback_data=f"pkg_book:{package['id']}")],
+        ]
+        if package.get("url"):
+            buttons.append([InlineKeyboardButton(text="🔍 Смотреть тур", url=package["url"])])
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Функция получения фото
+    async def get_photo(package):
+        photo_path = package.get("photo")
+        return await media_manager.get_photo(photo_path) if photo_path else None
+
+    # Используем универсальную функцию
+    await send_items_page(
+        message=message,
+        items=packages,
+        page=page,
+        per_page=5,
+        format_card_func=format_card,
+        get_keyboard_func=get_keyboard,
+        get_photo_func=get_photo,
+        callback_prefix="pkg_cards_page",
+        page_title="Страница"
+    )
 
 
 # ========== Навигация ==========
@@ -180,6 +222,38 @@ async def navigate_packages(callback: CallbackQuery, state: FSMContext):
     
     # Показываем новый тур
     await show_package_card(callback.message, state, new_index)
+
+
+@router.callback_query(F.data == "pkg:show_all")
+async def show_all_packages(callback: CallbackQuery, state: FSMContext):
+    """Показать все пакетные туры страницей"""
+    await callback.answer()
+
+    # Удаляем предыдущее сообщение
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Показываем первую страницу
+    await send_packages_cards_page(callback.message, state, 0)
+
+
+@router.callback_query(F.data.startswith("pkg_cards_page:"))
+async def navigate_packages_pages(callback: CallbackQuery, state: FSMContext):
+    """Навигация по страницам пакетных туров"""
+    await callback.answer()
+
+    page = int(callback.data.split(":")[1])
+
+    # Удаляем предыдущие сообщения
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Показываем новую страницу
+    await send_packages_cards_page(callback.message, state, page)
 
 
 # ========== Бронирование ==========

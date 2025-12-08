@@ -1,4 +1,5 @@
 """Тексты для флоу пакетных туров"""
+from utils.helpers import convert_price
 
 
 def get_packages_intro_text(name: str) -> str:
@@ -10,12 +11,16 @@ def get_packages_intro_text(name: str) -> str:
 
 def get_package_card_text(package: dict) -> str:
     """Форматирование карточки пакетного тура"""
+    price_usd = package['price_usd']
+    price_rub = int(convert_price(price_usd, "usd", "rub"))
+    price_peso = int(convert_price(price_usd, "usd", "peso"))
+
     return f"""<b>{package['name']}</b>
 
 📅 {package['start_date']} - {package['end_date']} ({package['duration']} дней)
 📍 Острова: {package['islands']}
 
-💵 ${package['price_usd']} / {package['price_rub']} руб. / {package['price_peso']} песо
+💵 ${price_usd} / {price_rub} руб. / {price_peso} песо
 
 {package.get('description', '')}"""
 

@@ -4,6 +4,8 @@ from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
 
+from handlers.main_menu import show_main_menu
+
 from states.user_states import UserStates
 from keyboards import (
     get_islands_keyboard,
@@ -13,7 +15,10 @@ from keyboards import (
     get_price_method_keyboard,
     get_price_range_keyboard,
     get_hotel_navigation_keyboard,
+    get_hotel_rooms_keyboard,
     get_share_contact_keyboard,
+    get_hotel_card_simple_keyboard, 
+    get_cards_pagination_keyboard,
     get_back_to_main_keyboard
 )
 from utils.texts import (
@@ -32,7 +37,8 @@ from utils.texts import (
     get_booking_confirmation_text,
     CONTACT_RECEIVED,
     get_hotels_list_text,
-    get_hotel_list_item_text
+    get_hotel_list_item_text,
+    get_hotel_rooms_text
 )
 from utils.helpers import (
     validate_price_range,
@@ -41,7 +47,8 @@ from utils.helpers import (
     format_date,
     get_currency_symbol,
     convert_price,
-    validate_phone_number
+    validate_phone_number,
+    send_items_page
 )
 from utils.data_loader import data_loader
 from utils.media_manager import get_hotel_photo
@@ -115,15 +122,26 @@ async def select_criteria_stars(callback: CallbackQuery, state: FSMContext):
 async def select_criteria_price(callback: CallbackQuery, state: FSMContext):
     """Выбран критерий - цена"""
     await callback.answer()
-    
+
     await state.update_data(criteria="price", stars=None)
-    
+
     await callback.message.edit_text(
         HOTELS_SELECT_CURRENCY,
         reply_markup=get_currency_keyboard()
     )
-    
+
     await state.set_state(UserStates.HOTELS_SELECT_CURRENCY)
+
+
+@router.callback_query(UserStates.HOTELS_SELECT_CRITERIA, F.data == "criteria:all")
+async def select_criteria_all(callback: CallbackQuery, state: FSMContext):
+    """Выбран критерий - показать все отели"""
+    await callback.answer()
+
+    await state.update_data(criteria="all", stars=None, price_range=None, min_price=None, max_price=None)
+
+    # Сразу переходим к выбору дат
+    await show_check_in_calendar(callback.message, state)
 
 
 # ========== Ветка A: Звездность ==========
@@ -175,12 +193,16 @@ async def select_price_method_custom(callback: CallbackQuery, state: FSMContext)
 async def select_price_method_list(callback: CallbackQuery, state: FSMContext):
     """Выбран метод - диапазон из списка"""
     await callback.answer()
-    
+
+    # Получаем выбранную валюту
+    data = await state.get_data()
+    currency = data.get("currency", "usd")
+
     await callback.message.edit_text(
         HOTELS_SELECT_PRICE_RANGE,
-        reply_markup=get_price_range_keyboard()
+        reply_markup=get_price_range_keyboard(currency)
     )
-    
+
     await state.set_state(UserStates.HOTELS_SELECT_PRICE_RANGE)
 
 
@@ -207,54 +229,66 @@ async def process_custom_price_range(message: Message, state: FSMContext):
         min_price=min_price,
         max_price=max_price
     )
-    
+
     # Переходим к выбору дат
-    await show_check_in_calendar_new_message(message, state)
+    await show_check_in_calendar(message, state, use_answer=True)
 
 
 @router.callback_query(UserStates.HOTELS_SELECT_PRICE_RANGE, F.data.startswith("price_range:"))
 async def select_price_range(callback: CallbackQuery, state: FSMContext):
     """Выбор диапазона из списка"""
     await callback.answer()
-    
-    price_range = callback.data.split(":")[1]
+
+    # Парсим данные: price_range:min-max:currency
+    parts = callback.data.split(":")
+    price_range = parts[1]
+    currency = parts[2] if len(parts) > 2 else "usd"
+
     min_price, max_price = map(int, price_range.split("-"))
-    
+
+    # Конвертируем в USD для фильтрации (т.к. цены в БД в USD)
+    if currency != "usd":
+        min_price_usd = int(convert_price(min_price, currency, "usd"))
+        max_price_usd = int(convert_price(max_price, currency, "usd"))
+    else:
+        min_price_usd = min_price
+        max_price_usd = max_price
+
     await state.update_data(
         price_range=price_range,
-        min_price=min_price,
-        max_price=max_price
+        min_price=min_price_usd,
+        max_price=max_price_usd,
+        display_currency=currency  # Сохраняем валюту для отображения
     )
-    
+
     # Переходим к выбору дат
     await show_check_in_calendar(callback.message, state)
 
 
 # ========== Календарь и даты ==========
 
-async def show_check_in_calendar(message: Message, state: FSMContext):
-    """Показать календарь выбора даты заезда"""
+async def show_check_in_calendar(message: Message, state: FSMContext, use_answer: bool = False):
+    """Показать календарь выбора даты заезда
+
+    Args:
+        message: Сообщение для отправки календаря
+        state: Контекст FSM
+        use_answer: Если True, использует answer вместо edit_text
+    """
     now = datetime.now()
     calendar = get_calendar_keyboard(now.year, now.month)
-    
-    await message.edit_text(
-        HOTELS_SELECT_CHECK_IN,
-        reply_markup=calendar
-    )
-    
-    await state.set_state(UserStates.HOTELS_SELECT_CHECK_IN)
 
+    if use_answer:
+        await message.answer(
+            HOTELS_SELECT_CHECK_IN,
+            reply_markup=calendar
+        )
+    else:
+        await message.edit_text(
+            HOTELS_SELECT_CHECK_IN,
+            reply_markup=calendar
+        )
 
-async def show_check_in_calendar_new_message(message: Message, state: FSMContext):
-    """Показать календарь в новом сообщении"""
-    now = datetime.now()
-    calendar = get_calendar_keyboard(now.year, now.month)
-    
-    await message.answer(
-        HOTELS_SELECT_CHECK_IN,
-        reply_markup=calendar
-    )
-    
     await state.set_state(UserStates.HOTELS_SELECT_CHECK_IN)
 
 
@@ -381,33 +415,28 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
     """Показать карточку отеля"""
     data = await state.get_data()
     hotels = data.get("hotels", [])
-    min_price = data.get("min_price")
-    max_price = data.get("max_price")
-    
+
     if index < 0 or index >= len(hotels):
         return
-    
+
     hotel = hotels[index]
-    
-    # Фильтруем комнаты по цене
+
+    # Получаем все доступные номера отеля
     rooms = hotel.get("rooms", [])
-    if min_price and max_price:
-        rooms = data_loader.filter_rooms_by_price(rooms, min_price, max_price)
-    
+
     # Формируем текст карточки
     card_text = get_hotel_card_text(hotel, rooms)
-    
+
     # Формируем клавиатуру
     keyboard = get_hotel_navigation_keyboard(
         current_index=index,
         total=len(hotels),
-        hotel_id=hotel["id"],
-        rooms=rooms
+        hotel_id=hotel["id"]
     )
-    
+
     # Пытаемся получить фото
     photo = await get_hotel_photo(hotel["id"])
-    
+
     if photo:
         # Отправляем с фото
         await message.answer_photo(
@@ -423,6 +452,43 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
             reply_markup=keyboard,
             parse_mode="Markdown"
         )
+
+
+async def send_hotels_cards_page(message: Message, state: FSMContext, page: int):
+    """Отправить страницу с отелями блоками (по 5 штук)"""
+    data = await state.get_data()
+    hotels = data.get("hotels", [])
+
+    if not hotels:
+        return
+
+    # Функция форматирования карточки
+    def format_card(hotel):
+        rooms = hotel.get("rooms", [])
+        return get_hotel_card_text(hotel, rooms)
+
+    # Функция создания клавиатуры
+    def get_keyboard(hotel):
+        return get_hotel_card_simple_keyboard(hotel["id"])
+
+    # Функция получения фото
+    async def get_photo(hotel):
+        return await get_hotel_photo(hotel["id"])
+
+    # Используем универсальную функцию
+    await send_items_page(
+        message=message,
+        items=hotels,
+        page=page,
+        per_page=5,
+        format_card_func=format_card,
+        get_keyboard_func=get_keyboard,
+        get_photo_func=get_photo,
+        callback_prefix="cards_page",
+        page_title="Страница",
+        parse_mode="Markdown",
+        page_1_based=True
+    )
 
 
 # ========== Навигация по отелям ==========
@@ -480,7 +546,7 @@ async def process_room_count(message: Message, state: FSMContext):
     try:
         room_count = int(message.text.strip())
         
-        if room_count < 1 or room_count > 9:
+        if room_count < 1:
             raise ValueError
         
         # Удаляем сообщение пользователя
@@ -525,7 +591,7 @@ async def process_room_count(message: Message, state: FSMContext):
         
     except ValueError:
         await message.answer(
-            "❌ Пожалуйста, введите число от 1 до 9",
+            "❌ Пожалуйста, введите корректное число (от 1)",
             reply_markup=get_back_to_main_keyboard()
         )
 
@@ -547,8 +613,6 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
     hotel = data_loader.get_hotel_by_id(hotel_id)
     room = data_loader.get_room_by_id(hotel_id, room_id)
 
-    # Рассчитываем количество ночей
-    from datetime import datetime
     check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
     check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
     nights = (check_out_date - check_in_date).days
@@ -557,8 +621,6 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
     updated_data = order_manager.add_hotel(data, hotel, room, nights * room_count)
     await state.update_data(order=updated_data["order"])
 
-    # Возвращаем в главное меню
-    from handlers.main_menu import show_main_menu
     try:
         await callback.message.delete()
     except:
@@ -624,73 +686,6 @@ async def change_criteria(callback: CallbackQuery, state: FSMContext):
     await back_to_island(callback, state)
 
 
-@router.callback_query(F.data == "hotels:show_all")
-async def show_all_hotels_list(callback: CallbackQuery, state: FSMContext):
-    """Показать все отели списком"""
-    await callback.answer()
-    
-    data = await state.get_data()
-    hotels = data.get("hotels", [])
-    user_name = data.get("user_name", "Друг")
-    island = data.get("island")
-    stars = data.get("stars")
-    price_range = data.get("price_range", "Не указана")
-    check_in = format_date(data.get("check_in"))
-    check_out = format_date(data.get("check_out"))
-    min_price = data.get("min_price")
-    max_price = data.get("max_price")
-    
-    if not hotels:
-        await callback.answer("Отели не найдены", show_alert=True)
-        return
-    
-    # Формируем заголовок
-    header_text = get_hotels_list_text(
-        get_island_name_ru(island),
-        f"{stars} звезд" if stars else "Не указана",
-        price_range,
-        check_in,
-        check_out,
-        len(hotels)
-    )
-    
-    # Формируем кнопки с отелями
-    buttons = []
-    
-    for i, hotel in enumerate(hotels):
-        # Фильтруем комнаты по цене
-        rooms = hotel.get("rooms", [])
-        if min_price and max_price:
-            rooms = data_loader.filter_rooms_by_price(rooms, min_price, max_price)
-        
-        # Текст кнопки с ценами
-        button_text = get_hotel_list_item_text(hotel, rooms)
-        
-        buttons.append([InlineKeyboardButton(
-            text=button_text,
-            callback_data=f"hotel_from_list:{i}"
-        )])
-    
-    # Кнопка назад
-    buttons.append([InlineKeyboardButton(text="🔙 Вернуться к просмотру", callback_data="hotels:back_to_pagination")])
-    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-    # Удаляем предыдущее сообщение (может быть с фото)
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-    # Отправляем новое сообщение
-    await callback.message.answer(
-        header_text,
-        reply_markup=keyboard,
-        parse_mode="Markdown"
-    )
-
-
 @router.callback_query(F.data.startswith("hotel_from_list:"))
 async def show_hotel_from_list(callback: CallbackQuery, state: FSMContext):
     """Показать отель из списка"""
@@ -730,16 +725,162 @@ async def back_to_pagination(callback: CallbackQuery, state: FSMContext):
     await state.set_state(UserStates.HOTELS_SHOW_RESULTS)
 
 
-@router.callback_query(F.data.startswith("hotel_view:"))
-async def view_hotel_details(callback: CallbackQuery):
-    """Просмотр деталей отеля"""
-    await callback.answer("🔍 Функция просмотра отеля будет реализована позже", show_alert=True)
+@router.callback_query(UserStates.HOTELS_SHOW_RESULTS, F.data.startswith("hotel_view:"))
+async def view_hotel_rooms(callback: CallbackQuery, state: FSMContext):
+    """Просмотр номеров отеля"""
+    await callback.answer()
+
+    hotel_id = callback.data.split(":")[1]
+    data = await state.get_data()
+    hotels = data.get("hotels", [])
+
+    # Находим отель по ID
+    hotel = None
+    for h in hotels:
+        if h["id"] == hotel_id:
+            hotel = h
+            break
+
+    if not hotel:
+        await callback.answer("Отель не найден", show_alert=True)
+        return
+
+    # Получаем все доступные номера отеля
+    rooms = hotel.get("rooms", [])
+
+    if not rooms:
+        await callback.answer("Нет доступных номеров", show_alert=True)
+        return
+
+    # Формируем текст и клавиатуру
+    rooms_text = get_hotel_rooms_text(hotel, rooms)
+    keyboard = get_hotel_rooms_keyboard(hotel_id, rooms)
+
+    await callback.message.answer(
+        rooms_text,
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
 
 
-@router.callback_query(F.data == "hotels:show_all")
-async def show_all_hotels_list(callback: CallbackQuery):
+@router.callback_query(UserStates.HOTELS_SHOW_RESULTS, F.data.startswith("hotel_back:"))
+async def back_to_hotel_card(callback: CallbackQuery):
+    """Вернуться к карточке отеля из просмотра номеров"""
+    await callback.answer()
+
+    # Удаляем сообщение с номерами
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+
+@router.callback_query(UserStates.HOTELS_SHOW_RESULTS, F.data == "hotels:show_all_list")
+async def show_all_hotels_list(callback: CallbackQuery, state: FSMContext):
     """Показать все отели списком"""
-    await callback.answer("📋 Функция показа списком будет реализована позже", show_alert=True)
+    await callback.answer()
+
+    data = await state.get_data()
+    hotels = data.get("hotels", [])
+    island = data.get("island")
+    stars = data.get("stars")
+    price_range = data.get("price_range", "Не указана")
+    check_in = format_date(data.get("check_in"))
+    check_out = format_date(data.get("check_out"))
+
+    if not hotels:
+        await callback.answer("Отели не найдены", show_alert=True)
+        return
+
+    # Формируем заголовок
+    header_text = get_hotels_list_text(
+        get_island_name_ru(island),
+        f"{stars} звезд" if stars else "Не указана",
+        price_range,
+        check_in,
+        check_out,
+        len(hotels)
+    )
+
+    # Формируем кнопки с отелями
+    buttons = []
+
+    for i, hotel in enumerate(hotels):
+        # Получаем все доступные номера отеля
+        rooms = hotel.get("rooms", [])
+
+        # Текст кнопки с ценами
+        button_text = get_hotel_list_item_text(hotel, rooms)
+
+        buttons.append([InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"hotel_from_list:{i}"
+        )])
+
+    # Кнопка назад
+    buttons.append([InlineKeyboardButton(text="🔙 Вернуться к просмотру", callback_data="hotels:back_to_pagination")])
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Удаляем предыдущее сообщение (может быть с фото)
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Отправляем новое сообщение
+    await callback.message.answer(
+        header_text,
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+
+@router.callback_query(UserStates.HOTELS_SHOW_RESULTS, F.data == "hotels:show_all")
+async def show_all_hotels_as_cards(callback: CallbackQuery, state: FSMContext):
+    """Показать все отели отдельными блоками (по 10 штук на странице)"""
+    await callback.answer()
+
+    data = await state.get_data()
+    hotels = data.get("hotels", [])
+
+    if not hotels:
+        await callback.answer("Отели не найдены", show_alert=True)
+        return
+
+    # Удаляем текущее сообщение с пагинацией
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Отправляем первую страницу
+    await send_hotels_cards_page(callback.message, state, page=1)
+
+
+@router.callback_query(UserStates.HOTELS_SHOW_RESULTS, F.data.startswith("cards_page:"))
+async def navigate_cards_pages(callback: CallbackQuery, state: FSMContext):
+    """Переключение страниц массовых блоков"""
+    await callback.answer()
+
+    # Получаем номер страницы
+    page = int(callback.data.split(":")[1])
+
+    # Удаляем контрольное сообщение
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Отправляем новую страницу
+    await send_hotels_cards_page(callback.message, state, page)
+
+
+@router.callback_query(F.data == "current_page")
+async def ignore_current_page(callback: CallbackQuery):
+    """Игнорируем нажатие на текущую страницу"""
+    await callback.answer()
 
 
 @router.callback_query(F.data == "share:contact")
@@ -767,23 +908,32 @@ async def process_contact(message: Message, state: FSMContext):
 async def back_from_calendar(callback: CallbackQuery, state: FSMContext):
     """Назад из календаря"""
     await callback.answer()
-    
+
     data = await state.get_data()
     criteria = data.get("criteria")
-    
+
     if criteria == "stars":
         await callback.message.edit_text(
             HOTELS_SELECT_STARS,
             reply_markup=get_stars_keyboard()
         )
         await state.set_state(UserStates.HOTELS_SELECT_STARS)
-    else:
+    elif criteria == "price":
         # Для цены возвращаемся к выбору диапазона
+        data = await state.get_data()
+        currency = data.get("currency", "usd")
         await callback.message.edit_text(
             HOTELS_SELECT_PRICE_RANGE,
-            reply_markup=get_price_range_keyboard()
+            reply_markup=get_price_range_keyboard(currency)
         )
         await state.set_state(UserStates.HOTELS_SELECT_PRICE_RANGE)
+    else:
+        # Для "all" возвращаемся к выбору критериев
+        await callback.message.edit_text(
+            HOTELS_SELECT_CRITERIA,
+            reply_markup=get_criteria_keyboard()
+        )
+        await state.set_state(UserStates.HOTELS_SELECT_CRITERIA)
 
 
 @router.callback_query(F.data == "hotels:back_to_currency")

@@ -17,7 +17,10 @@ from .hotels import (
     get_price_method_keyboard,
     get_price_range_keyboard,
     get_hotel_navigation_keyboard,
-    get_share_contact_keyboard
+    get_hotel_rooms_keyboard,
+    get_share_contact_keyboard,
+    get_hotel_card_simple_keyboard, 
+    get_cards_pagination_keyboard
 )
 
 from .excursions import (
@@ -47,6 +50,7 @@ __all__ = [
     'get_price_method_keyboard',
     'get_price_range_keyboard',
     'get_hotel_navigation_keyboard',
+    'get_hotel_rooms_keyboard',
     'get_share_contact_keyboard',
     # Excursions
     'get_excursion_type_keyboard',

@@ -27,7 +27,7 @@ def get_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="RuTube", url=COMPANY_LINKS["rutube"])
         ],
         [InlineKeyboardButton(text="Instagram", url=COMPANY_LINKS["instagram"])],
-        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+        [InlineKeyboardButton(text="🏠 К выбору услуг", callback_data="back:main")]
     ])
     return keyboard
 

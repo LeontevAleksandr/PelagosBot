@@ -53,16 +53,19 @@ class DataLoader:
         if stars:
             hotels = [h for h in hotels if h["stars"] == stars]
         
-        # Фильтр по цене (ищем хотя бы один номер в диапазоне)
+        # Фильтр по цене (проверяем, что самый дешевый номер не превышает max_price на 30%)
         if min_price is not None and max_price is not None:
             filtered = []
+            max_allowed_price = max_price * 1.3  # +30% от максимальной цены
+
             for hotel in hotels:
-                has_room_in_range = any(
-                    min_price <= room["price"] <= max_price
-                    for room in hotel.get("rooms", [])
-                )
-                if has_room_in_range:
-                    filtered.append(hotel)
+                rooms = hotel.get("rooms", [])
+                if rooms:
+                    # Находим самый дешевый номер
+                    cheapest_room_price = min(room["price"] for room in rooms)
+                    # Проверяем, что самый дешевый номер не дороже max_price + 30%
+                    if cheapest_room_price <= max_allowed_price:
+                        filtered.append(hotel)
             hotels = filtered
         
         return hotels
@@ -80,19 +83,12 @@ class DataLoader:
         hotel = self.get_hotel_by_id(hotel_id)
         if not hotel:
             return None
-        
+
         for room in hotel.get("rooms", []):
             if room["id"] == room_id:
                 return room
         return None
-    
-    def filter_rooms_by_price(self, rooms: list, min_price: float, max_price: float) -> list:
-        """Отфильтровать комнаты по цене"""
-        return [
-            room for room in rooms
-            if min_price <= room["price"] <= max_price
-        ]
-    
+
     # ========== ЭКСКУРСИИ ==========
     
     def get_excursions_by_filters(

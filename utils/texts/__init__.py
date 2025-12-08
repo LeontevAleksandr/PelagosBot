@@ -29,7 +29,8 @@ from .hotels import (
     get_booking_confirmation_text,
     CONTACT_RECEIVED,
     get_hotels_list_text,
-    get_hotel_list_item_text
+    get_hotel_list_item_text,
+    get_hotel_rooms_text
 )
 
 from .excursions import (
@@ -92,6 +93,7 @@ __all__ = [
     'CONTACT_RECEIVED',
     'get_hotels_list_text',
     'get_hotel_list_item_text',
+    'get_hotel_rooms_text',
     # Excursions
     'get_excursions_intro_text',
     'EXCURSIONS_SELECT_TYPE',

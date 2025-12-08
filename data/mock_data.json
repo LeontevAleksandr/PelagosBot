@@ -82,8 +82,8 @@
     {
       "id": "hotel_5",
       "name": "CEBU GRAND HOTEL",
-      "island": "cebu",
-      "island_name": "Себу",
+      "island": "boracay",
+      "island_name": "Боракай",
       "stars": 5,
       "rating": 4.7,
       "room_type": "Superior",
@@ -99,8 +99,8 @@
     {
       "id": "hotel_6",
       "name": "CEBU CITY PLAZA",
-      "island": "cebu",
-      "island_name": "Себу",
+      "island": "boracay",
+      "island_name": "Боракай",
       "stars": 5,
       "rating": 4.5,
       "room_type": "Deluxe",
@@ -115,8 +115,8 @@
     {
       "id": "hotel_7",
       "name": "MANILA BAY RESORT",
-      "island": "manila",
-      "island_name": "Манила",
+      "island": "boracay",
+      "island_name": "Боракай",
       "stars": 3,
       "rating": 4.2,
       "room_type": "Standard",
@@ -130,8 +130,8 @@
     {
       "id": "hotel_8",
       "name": "MANILA DOWNTOWN HOTEL",
-      "island": "manila",
-      "island_name": "Манила",
+      "island": "boracay",
+      "island_name": "Боракай",
       "stars": 3,
       "rating": 4.0,
       "room_type": "Standard",
@@ -145,8 +145,8 @@
     {
       "id": "hotel_9",
       "name": "BOHOL BEACH CLUB",
-      "island": "bohol",
-      "island_name": "Бохоль",
+      "island": "boracay",
+      "island_name": "Боракай",
       "stars": 4,
       "rating": 4.6,
       "room_type": "Villa",
@@ -161,8 +161,8 @@
     {
       "id": "hotel_10",
       "name": "PALAWAN PARADISE RESORT",
-      "island": "palawan",
-      "island_name": "Палаван",
+      "island": "boracay",
+      "island_name": "Боракай",
       "stars": 5,
       "rating": 4.8,
       "room_type": "Bungalow",
@@ -172,6 +172,216 @@
         {"id": "room_43", "name": "Beach Bungalow", "price": 195, "guests": 2},
         {"id": "room_44", "name": "Water Bungalow", "price": 280, "guests": 2},
         {"id": "room_45", "name": "Luxury Villa", "price": 420, "guests": 4}
+      ]
+    },
+    {
+      "id": "hotel_11",
+      "name": "BORACAY MANDARIN ISLAND HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.5,
+      "room_type": "Deluxe",
+      "rate": 4.1,
+      "photo": "hotels/boracay_mandarin.jpg",
+      "rooms": [
+        {"id": "room_1", "name": "Premier Room", "price": 117, "guests": 2},
+        {"id": "room_2", "name": "Premier Deluxe Sea View", "price": 148, "guests": 2},
+        {"id": "room_3", "name": "Deluxe", "price": 156, "guests": 2},
+        {"id": "room_4", "name": "Penthouse Suite", "price": 197, "guests": 3},
+        {"id": "room_5", "name": "Grand Poolside", "price": 198, "guests": 2},
+        {"id": "room_6", "name": "Deluxe Family", "price": 203, "guests": 4},
+        {"id": "room_7", "name": "Grand Deluxe Poolside", "price": 244, "guests": 2},
+        {"id": "room_8", "name": "Ambassador Suite", "price": 266, "guests": 2},
+        {"id": "room_9", "name": "Mandarin Grand Suite", "price": 315, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_12",
+      "name": "BORACAY MANDARIN ISLAND HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.5,
+      "room_type": "Deluxe",
+      "rate": 4.1,
+      "photo": "hotels/boracay_mandarin.jpg",
+      "rooms": [
+        {"id": "room_1", "name": "Premier Room", "price": 117, "guests": 2},
+        {"id": "room_2", "name": "Premier Deluxe Sea View", "price": 148, "guests": 2},
+        {"id": "room_3", "name": "Deluxe", "price": 156, "guests": 2},
+        {"id": "room_4", "name": "Penthouse Suite", "price": 197, "guests": 3},
+        {"id": "room_5", "name": "Grand Poolside", "price": 198, "guests": 2},
+        {"id": "room_6", "name": "Deluxe Family", "price": 203, "guests": 4},
+        {"id": "room_7", "name": "Grand Deluxe Poolside", "price": 244, "guests": 2},
+        {"id": "room_8", "name": "Ambassador Suite", "price": 266, "guests": 2},
+        {"id": "room_9", "name": "Mandarin Grand Suite", "price": 315, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_13",
+      "name": "BORACAY BEACH RESORT",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.3,
+      "room_type": "Superior",
+      "photo": null,
+      "rooms": [
+        {"id": "room_10", "name": "Standard Room", "price": 125, "guests": 2},
+        {"id": "room_11", "name": "Superior Room", "price": 145, "guests": 2},
+        {"id": "room_12", "name": "Deluxe Ocean View", "price": 175, "guests": 2},
+        {"id": "room_13", "name": "Junior Suite", "price": 210, "guests": 2},
+        {"id": "room_14", "name": "Executive Suite", "price": 280, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_14",
+      "name": "WHITE BEACH HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.6,
+      "room_type": "Deluxe",
+      "photo": null,
+      "rooms": [
+        {"id": "room_15", "name": "Garden View", "price": 130, "guests": 2},
+        {"id": "room_16", "name": "Pool View", "price": 155, "guests": 2},
+        {"id": "room_17", "name": "Beach Front", "price": 190, "guests": 2},
+        {"id": "room_18", "name": "Sunset Suite", "price": 240, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_15",
+      "name": "PARADISE ISLAND RESORT",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.4,
+      "room_type": "Superior",
+      "photo": null,
+      "rooms": [
+        {"id": "room_19", "name": "Classic Room", "price": 120, "guests": 2},
+        {"id": "room_20", "name": "Superior Garden", "price": 140, "guests": 2},
+        {"id": "room_21", "name": "Deluxe Balcony", "price": 165, "guests": 2},
+        {"id": "room_22", "name": "Premium Suite", "price": 220, "guests": 3}
+      ]
+    },
+    {
+      "id": "hotel_16",
+      "name": "CEBU GRAND HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 5,
+      "rating": 4.7,
+      "room_type": "Superior",
+      "photo": "hotels/cebu_grand.jpg",
+      "rooms": [
+        {"id": "room_23", "name": "Standard Room", "price": 95, "guests": 2},
+        {"id": "room_24", "name": "Superior Room", "price": 125, "guests": 2},
+        {"id": "room_25", "name": "Deluxe Sea View", "price": 165, "guests": 2},
+        {"id": "room_26", "name": "Executive Suite", "price": 230, "guests": 3},
+        {"id": "room_27", "name": "Presidential Suite", "price": 450, "guests": 4}
+      ]
+    },
+    {
+      "id": "hotel_17",
+      "name": "CEBU CITY PLAZA",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 5,
+      "rating": 4.5,
+      "room_type": "Deluxe",
+      "photo": null,
+      "rooms": [
+        {"id": "room_28", "name": "City View", "price": 110, "guests": 2},
+        {"id": "room_29", "name": "Premier Room", "price": 140, "guests": 2},
+        {"id": "room_30", "name": "Deluxe Corner", "price": 180, "guests": 2},
+        {"id": "room_31", "name": "Club Suite", "price": 260, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_18",
+      "name": "MANILA BAY RESORT",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 3,
+      "rating": 4.2,
+      "room_type": "Standard",
+      "photo": null,
+      "rooms": [
+        {"id": "room_32", "name": "Economy Room", "price": 65, "guests": 2},
+        {"id": "room_33", "name": "Standard Room", "price": 85, "guests": 2},
+        {"id": "room_34", "name": "Superior Room", "price": 105, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_19",
+      "name": "MANILA DOWNTOWN HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 3,
+      "rating": 4.0,
+      "room_type": "Standard",
+      "photo": null,
+      "rooms": [
+        {"id": "room_35", "name": "Basic Room", "price": 60, "guests": 2},
+        {"id": "room_36", "name": "Standard Twin", "price": 75, "guests": 2},
+        {"id": "room_37", "name": "Deluxe Double", "price": 95, "guests": 2}
+      ]
+    },
+    {
+      "id": "hotel_20",
+      "name": "BOHOL BEACH CLUB",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.6,
+      "room_type": "Villa",
+      "photo": null,
+      "rooms": [
+        {"id": "room_38", "name": "Garden Villa", "price": 135, "guests": 2},
+        {"id": "room_39", "name": "Beach Villa", "price": 170, "guests": 2},
+        {"id": "room_40", "name": "Premium Villa", "price": 210, "guests": 3},
+        {"id": "room_41", "name": "Royal Villa", "price": 290, "guests": 4}
+      ]
+    },
+    {
+      "id": "hotel_21",
+      "name": "PALAWAN PARADISE RESORT",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 5,
+      "rating": 4.8,
+      "room_type": "Bungalow",
+      "photo": null,
+      "rooms": [
+        {"id": "room_42", "name": "Garden Bungalow", "price": 150, "guests": 2},
+        {"id": "room_43", "name": "Beach Bungalow", "price": 195, "guests": 2},
+        {"id": "room_44", "name": "Water Bungalow", "price": 280, "guests": 2},
+        {"id": "room_45", "name": "Luxury Villa", "price": 420, "guests": 4}
+      ]
+    },
+    {
+      "id": "hotel_22",
+      "name": "BORACAY MANDARIN ISLAND HOTEL",
+      "island": "boracay",
+      "island_name": "Боракай",
+      "stars": 4,
+      "rating": 4.5,
+      "room_type": "Deluxe",
+      "rate": 4.1,
+      "photo": "hotels/boracay_mandarin.jpg",
+      "rooms": [
+        {"id": "room_1", "name": "Premier Room", "price": 117, "guests": 2},
+        {"id": "room_2", "name": "Premier Deluxe Sea View", "price": 148, "guests": 2},
+        {"id": "room_3", "name": "Deluxe", "price": 156, "guests": 2},
+        {"id": "room_4", "name": "Penthouse Suite", "price": 197, "guests": 3},
+        {"id": "room_5", "name": "Grand Poolside", "price": 198, "guests": 2},
+        {"id": "room_6", "name": "Deluxe Family", "price": 203, "guests": 4},
+        {"id": "room_7", "name": "Grand Deluxe Poolside", "price": 244, "guests": 2},
+        {"id": "room_8", "name": "Ambassador Suite", "price": 266, "guests": 2},
+        {"id": "room_9", "name": "Mandarin Grand Suite", "price": 315, "guests": 3}
       ]
     }
   ],
@@ -187,7 +397,7 @@
       "price_usd": 165,
       "price_rub": 13650,
       "price_peso": 9950,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "05:00",
       "photo": "excursions/whale_sharks.jpg",
       "url": "https://pelagostours.com/excursions/whale-sharks",
@@ -216,7 +426,7 @@
       "price_usd": 120,
       "price_rub": 9960,
       "price_peso": 7260,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "04:00",
       "url": null,
       "description": "Насыщенная экскурсия с активным отдыхом и плаванием с китовыми акулами.",
@@ -231,7 +441,7 @@
       "price_usd": 100,
       "price_rub": 8300,
       "price_peso": 6050,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "06:00",
       "description": "Данная экскурсия предоставляет возможность посетить все визитные карточки Бохола всего за один день.",
       "companions_count": 1
@@ -239,8 +449,8 @@
     {
       "id": "exc_5",
       "name": "White Beach Island Hopping",
-      "island": "boracay",
-      "island_name": "Боракай",
+      "island": "cebu",
+      "island_name": "Себу",
       "type": "private",
       "price_usd": 85,
       "price_rub": 7055,
@@ -250,8 +460,8 @@
     {
       "id": "exc_6",
       "name": "Sunset Sailing",
-      "island": "boracay",
-      "island_name": "Боракай",
+      "island": "cebu",
+      "island_name": "Себу",
       "type": "private",
       "price_usd": 60,
       "price_rub": 4980,
@@ -261,13 +471,13 @@
     {
       "id": "exc_7",
       "name": "Подземная река Пуэрто-Принцесса",
-      "island": "palawan",
-      "island_name": "Палаван",
+      "island": "cebu",
+      "island_name": "Себу",
       "type": "group",
       "price_usd": 140,
       "price_rub": 11620,
       "price_peso": 8470,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "07:00",
       "description": "Посещение одного из новых семи чудес природы - подземной реки.",
       "companions_count": 0
@@ -275,8 +485,8 @@
     {
       "id": "exc_8",
       "name": "El Nido Island Hopping Tour A",
-      "island": "palawan",
-      "island_name": "Палаван",
+      "island": "cebu",
+      "island_name": "Себу",
       "type": "private",
       "price_usd": 95,
       "price_rub": 7885,
@@ -286,13 +496,13 @@
     {
       "id": "exc_9",
       "name": "Шоколадные холмы + Тарсиеры + Круиз по реке Лобок",
-      "island": "bohol",
-      "island_name": "Бохоль",
+      "island": "cebu",
+      "island_name": "Себу",
       "type": "group",
       "price_usd": 130,
       "price_rub": 10790,
       "price_peso": 7865,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "08:00",
       "description": "Обзорная экскурсия по главным достопримечательностям Бохоля.",
       "companions_count": 5
@@ -306,7 +516,7 @@
       "price_usd": 110,
       "price_rub": 9130,
       "price_peso": 6655,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "06:00",
       "description": "Экстремальное приключение с прыжками в водопады.",
       "companions_count": 2
@@ -331,7 +541,7 @@
       "price_usd": 135,
       "price_rub": 11205,
       "price_peso": 8173,
-      "date": "2025-11-30",
+      "date": "2025-12-31",
       "time": "07:00",
       "description": "Комплексная экскурсия с активными видами спорта.",
       "companions_count": 4
@@ -342,7 +552,7 @@
       "id": "pkg_1",
       "name": "Филиппинский Микс: Манила + Боракай + Себу",
       "start_date": "2025-12-15",
-      "end_date": "2025-12-22",
+      "end_date": "2025-12-31",
       "duration": 8,
       "islands": "Манила, Боракай, Себу",
       "price_usd": 1200,
@@ -356,7 +566,7 @@
       "id": "pkg_2",
       "name": "Бохоль + Палаван: Природные чудеса",
       "start_date": "2025-12-10",
-      "end_date": "2025-12-17",
+      "end_date": "2025-12-31",
       "duration": 8,
       "islands": "Бохоль, Палаван",
       "price_usd": 1350,
@@ -370,7 +580,7 @@
       "id": "pkg_3",
       "name": "Романтический тур: Боракай + Палаван",
       "start_date": "2025-12-20",
-      "end_date": "2025-12-27",
+      "end_date": "2025-12-31",
       "duration": 8,
       "islands": "Боракай, Палаван",
       "price_usd": 1450,
@@ -384,7 +594,7 @@
       "id": "pkg_4",
       "name": "Гранд тур: Все звёзды Филиппин",
       "start_date": "2025-12-05",
-      "end_date": "2025-12-16",
+      "end_date": "2025-12-31",
       "duration": 12,
       "islands": "Манила, Боракай, Себу, Бохоль, Палаван",
       "price_usd": 2100,
@@ -398,7 +608,7 @@
       "id": "pkg_5",
       "name": "Активный отдых: Себу + Бохоль",
       "start_date": "2025-12-12",
-      "end_date": "2025-12-18",
+      "end_date": "2025-12-31",
       "duration": 7,
       "islands": "Себу, Бохоль",
       "price_usd": 980,
@@ -412,7 +622,7 @@
       "id": "pkg_6",
       "name": "Райский Палаван",
       "start_date": "2025-12-18",
-      "end_date": "2025-12-24",
+      "end_date": "2025-12-31",
       "duration": 7,
       "islands": "Палаван",
       "price_usd": 1150,

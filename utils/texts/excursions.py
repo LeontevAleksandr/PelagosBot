@@ -1,4 +1,5 @@
 """Тексты для флоу экскурсий"""
+from utils.helpers import convert_price
 
 
 def get_excursions_intro_text(name: str) -> str:
@@ -45,54 +46,65 @@ NO_EXCURSIONS_FOUND = """😔 К сожалению, экскурсий на в�
 
 def get_group_excursion_card_text(excursion: dict, expanded: bool = False) -> str:
     """Форматирование карточки групповой экскурсии"""
+    price_usd = excursion['price_usd']
+    price_rub = int(convert_price(price_usd, "usd", "rub"))
+    price_peso = int(convert_price(price_usd, "usd", "peso"))
+
     text = f"""**Групповая Экскурсия**
 {excursion['name']}
 
 📍 {excursion['island_name']}
-💵 ${excursion['price_usd']} / {excursion['price_rub']} руб. / {excursion['price_peso']} песо
+💵 ${price_usd} / {price_rub} руб. / {price_peso} песо
 🕐 {excursion['date']}, {excursion['time']}"""
-    
+
     # Если развернуто - показываем описание
     if expanded and excursion.get('description'):
         text += f"\n\n📝 {excursion['description']}"
-    
+
     return text
 
 
 def get_private_excursion_card_text(excursion: dict, people_count: int, expanded: bool = False) -> str:
     """Форматирование карточки индивидуальной экскурсии"""
+    price_usd = excursion['price_usd']
+    price_rub = int(convert_price(price_usd, "usd", "rub"))
+    price_peso = int(convert_price(price_usd, "usd", "peso"))
+
     text = f"""{excursion['name']}
 
 Стоимость на человека:
-💵 ${excursion['price_usd']} дол.
-₽ {excursion['price_rub']}₽ руб.
-₱ {excursion['price_peso']}₱ песо
+💵 ${price_usd} дол.
+₽ {price_rub} руб.
+₱ {price_peso} песо
 
 Количество чел.: {people_count}"""
-    
+
     # Если развернуто - показываем описание
     if expanded and excursion.get('description'):
         text += f"\n\n📝 {excursion['description']}"
-    
+
     return text
 
 
 def get_companions_excursion_card_text(excursion: dict) -> str:
     """Форматирование карточки экскурсии для поиска попутчиков"""
     companions_count = excursion.get('companions_count', 0)
-    
+    price_usd = excursion['price_usd']
+    price_rub = int(convert_price(price_usd, "usd", "rub"))
+    price_peso = int(convert_price(price_usd, "usd", "peso"))
+
     # Добавляем бейдж и описание
     text = f"""{excursion['name']}
 
 **[Поиск попутчиков]**
 
 📍 {excursion['island_name']}
-💵 от ${excursion['price_usd']} / {excursion['price_rub']} руб. / {excursion['price_peso']} песо
+💵 от ${price_usd} / {price_rub} руб. / {price_peso} песо
 🕐 {excursion.get('date', 'Дата уточняется')}, {excursion.get('time', '')}
 👥 уже {companions_count} человек
 
 {excursion.get('description', '')}"""
-    
+
     return text
 
 

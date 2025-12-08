@@ -50,23 +50,29 @@ def get_hotels_confirmation_text(name: str, island: str, stars: str, price: str,
 
 def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
     """Форматирование карточки отеля"""
-    rooms_text = "\n".join([
-        f"{i+1}) {room['name']}: ${room['price']}"
-        for i, room in enumerate(rooms)
-    ])
-    
+    # Получаем диапазон цен
+    prices = [room['price'] for room in rooms] if rooms else []
+
+    if prices:
+        min_price = min(prices)
+        max_price = max(prices)
+        if min_price == max_price:
+            price_text = f"${min_price}"
+        else:
+            price_text = f"${min_price} - ${max_price}"
+    else:
+        price_text = "Цена не указана"
+
     stars_text = "⭐" * hotel['stars']
-    
+
     return f"""**{hotel['name']}**
 
 Тип номера: {hotel['room_type']}
 Звезды: {stars_text}
 Остров: {hotel['island_name']}
 
-Найдено {len(rooms)} вариантов для {guest_count} гостей
-
-Доступные категории номеров для выбранного отеля:
-{rooms_text}"""
+Найдено {len(rooms)} вариантов
+Диапазон цен: {price_text}"""
 
 
 def get_booking_confirmation_text(room_count: int, room_name: str, hotel_name: str, check_in: str, check_out: str) -> str:
@@ -99,14 +105,32 @@ def get_hotel_list_item_text(hotel: dict, rooms: list) -> str:
     """Форматирование отеля в списке"""
     if not rooms:
         return hotel['name']
-    
+
     prices = [room['price'] for room in rooms]
     min_price = min(prices)
     max_price = max(prices)
-    
+
     stars = "⭐" * hotel['stars']
-    
+
     if min_price == max_price:
         return f"{hotel['name']} {stars} (${min_price})"
     else:
         return f"{hotel['name']} {stars} (${min_price} - ${max_price})"
+
+
+def get_hotel_rooms_text(hotel: dict, rooms: list) -> str:
+    """Форматирование списка номеров отеля для просмотра"""
+    rooms_text = "\n".join([
+        f"{i+1}. {room['name']}: ${room['price']}"
+        for i, room in enumerate(rooms)
+    ])
+
+    stars_text = "⭐" * hotel['stars']
+
+    return f"""**{hotel['name']}** {stars_text}
+
+📋 **Доступные категории номеров:**
+
+{rooms_text}
+
+Цена за номер за ночь при двухместном размещении, включает налоги и все сборы. Завтрак включён!"""
