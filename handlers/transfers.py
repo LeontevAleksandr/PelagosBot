@@ -1,10 +1,17 @@
 """Обработчики флоу трансферов"""
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
 from states.user_states import UserStates
-from keyboards import get_islands_keyboard, get_share_contact_keyboard, get_back_to_main_keyboard
+from keyboards import (
+    get_islands_keyboard,
+    get_share_contact_keyboard,
+    get_back_to_main_keyboard,
+    get_transfer_navigation_keyboard,
+    get_transfer_card_simple_keyboard,
+    get_transfer_booking_keyboard
+)
 from utils.texts import (
     get_transfers_intro_text,
     get_transfer_card_text,
@@ -13,6 +20,7 @@ from utils.texts import (
 from utils.data_loader import data_loader
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
+from utils.helpers import send_items_page
 
 router = Router()
 
@@ -120,29 +128,53 @@ async def show_transfer_card(message: Message, state: FSMContext, index: int):
     transfer = transfers[index]
     card_text = get_transfer_card_text(transfer, people_count)
 
-    # Формируем клавиатуру
-    buttons = []
-
-    # Кнопка бронирования
-    buttons.append([InlineKeyboardButton(text="✅ Забронировать", callback_data=f"transfer_book:{transfer['id']}")])
-
-    # Навигация
-    nav_buttons = []
-    if index > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Предыдущий", callback_data=f"transfer_nav:prev:{index}"))
-    if index < len(transfers) - 1:
-        nav_buttons.append(InlineKeyboardButton(text="Следующий ➡️", callback_data=f"transfer_nav:next:{index}"))
-
-    if nav_buttons:
-        buttons.append(nav_buttons)
-
-    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    # Используем новую клавиатуру с кнопкой "Показать все"
+    keyboard = get_transfer_navigation_keyboard(
+        current_index=index,
+        total=len(transfers),
+        transfer_id=transfer['id']
+    )
 
     await message.answer(
         card_text,
         reply_markup=keyboard
+    )
+
+
+async def send_transfers_cards_page(message: Message, state: FSMContext, page: int):
+    """Отправить страницу с трансферами блоками (по 5 штук)"""
+    data = await state.get_data()
+    transfers = data.get("transfers", [])
+    people_count = data.get("people_count", 1)
+
+    if not transfers:
+        return
+
+    # Функция форматирования карточки
+    def format_card(transfer):
+        return get_transfer_card_text(transfer, people_count)
+
+    # Функция создания клавиатуры
+    def get_keyboard(transfer):
+        return get_transfer_card_simple_keyboard(transfer["id"])
+
+    # Функция получения фото (для трансферов фото нет)
+    async def get_photo(transfer):
+        return None
+
+    # Используем универсальную функцию
+    await send_items_page(
+        message=message,
+        items=transfers,
+        page=page,
+        per_page=5,
+        format_card_func=format_card,
+        get_keyboard_func=get_keyboard,
+        get_photo_func=get_photo,
+        callback_prefix="transfer_cards_page",
+        page_title="Страница",
+        parse_mode=None,
+        page_1_based=True
     )
 
 
@@ -189,17 +221,9 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(selected_transfer_id=transfer_id)
 
-    # Показываем подтверждение с двумя кнопками
-    buttons = [
-        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="transfer:add_to_order")],
-        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="transfer:book_now")],
-        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
-    ]
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-
     await callback.message.answer(
         get_transfer_booking_text(transfer["name"], people_count),
-        reply_markup=keyboard
+        reply_markup=get_transfer_booking_keyboard()
     )
 
 
@@ -263,3 +287,45 @@ async def process_transfer_contact(message: Message, state: FSMContext):
         data = await state.get_data()
         updated_data = order_manager.clear_order(data)
         await state.update_data(order=updated_data["order"])
+
+
+# ========== Показ всех трансферов страницами ==========
+
+@router.callback_query(UserStates.TRANSFERS_SHOW_RESULTS, F.data == "transfers:show_all")
+async def show_all_transfers_as_cards(callback: CallbackQuery, state: FSMContext):
+    """Показать все трансферы отдельными блоками (по 5 штук на странице)"""
+    await callback.answer()
+
+    data = await state.get_data()
+    transfers = data.get("transfers", [])
+
+    if not transfers:
+        await callback.answer("Трансферы не найдены", show_alert=True)
+        return
+
+    # Удаляем текущее сообщение с пагинацией
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Отправляем первую страницу
+    await send_transfers_cards_page(callback.message, state, page=1)
+
+
+@router.callback_query(UserStates.TRANSFERS_SHOW_RESULTS, F.data.startswith("transfer_cards_page:"))
+async def navigate_transfer_cards_pages(callback: CallbackQuery, state: FSMContext):
+    """Переключение страниц массовых блоков трансферов"""
+    await callback.answer()
+
+    # Получаем номер страницы
+    page = int(callback.data.split(":")[1])
+
+    # Удаляем контрольное сообщение
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Отправляем новую страницу
+    await send_transfers_cards_page(callback.message, state, page)

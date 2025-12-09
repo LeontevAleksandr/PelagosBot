@@ -222,6 +222,15 @@ def get_cards_pagination_keyboard(current_page: int, total_pages: int) -> Inline
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+def get_custom_price_input_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для ввода пользовательского диапазона цен"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="hotels:back_to_price_method")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ])
+    return keyboard
+
+
 def get_share_contact_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура для запроса контакта"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[

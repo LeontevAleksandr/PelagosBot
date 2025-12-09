@@ -17,9 +17,10 @@ from keyboards import (
     get_hotel_navigation_keyboard,
     get_hotel_rooms_keyboard,
     get_share_contact_keyboard,
-    get_hotel_card_simple_keyboard, 
+    get_hotel_card_simple_keyboard,
     get_cards_pagination_keyboard,
-    get_back_to_main_keyboard
+    get_back_to_main_keyboard,
+    get_custom_price_input_keyboard
 )
 from utils.texts import (
     get_hotels_intro_text,
@@ -187,7 +188,7 @@ async def select_price_method_custom(callback: CallbackQuery, state: FSMContext)
 
     await callback.message.edit_text(
         get_hotels_input_custom_range_text(currency),
-        reply_markup=get_back_to_main_keyboard()
+        reply_markup=get_custom_price_input_keyboard()
     )
 
     await state.set_state(UserStates.HOTELS_INPUT_CUSTOM_RANGE)
@@ -230,7 +231,7 @@ async def process_custom_price_range(message: Message, state: FSMContext):
 
         await message.answer(
             f"❌ Неверный формат! Пожалуйста, введите диапазон в формате: {min_limit}-{max_limit}{symbol}",
-            reply_markup=get_back_to_main_keyboard()
+            reply_markup=get_custom_price_input_keyboard()
         )
         return
 

@@ -20,7 +20,8 @@ from .hotels import (
     get_hotel_rooms_keyboard,
     get_share_contact_keyboard,
     get_hotel_card_simple_keyboard, 
-    get_cards_pagination_keyboard
+    get_cards_pagination_keyboard,
+    get_custom_price_input_keyboard
 )
 
 from .excursions import (
@@ -32,6 +33,12 @@ from .excursions import (
     get_companions_excursion_keyboard,
     get_companions_create_agree_keyboard,
     get_companions_select_excursion_keyboard
+)
+
+from .transfers import (
+    get_transfer_navigation_keyboard,
+    get_transfer_card_simple_keyboard,
+    get_transfer_booking_keyboard
 )
 
 __all__ = [
@@ -52,6 +59,9 @@ __all__ = [
     'get_hotel_navigation_keyboard',
     'get_hotel_rooms_keyboard',
     'get_share_contact_keyboard',
+    'get_hotel_card_simple_keyboard',
+    'get_cards_pagination_keyboard',
+    'get_custom_price_input_keyboard',
     # Excursions
     'get_excursion_type_keyboard',
     'get_group_excursion_keyboard',
@@ -60,5 +70,9 @@ __all__ = [
     'get_companions_list_keyboard',
     'get_companions_excursion_keyboard',
     'get_companions_create_agree_keyboard',
-    'get_companions_select_excursion_keyboard'
+    'get_companions_select_excursion_keyboard',
+    # Transfers
+    'get_transfer_navigation_keyboard',
+    'get_transfer_card_simple_keyboard',
+    'get_transfer_booking_keyboard'
 ]
