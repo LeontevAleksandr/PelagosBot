@@ -19,7 +19,7 @@ class APIClient:
         if self._session is None or self._session.closed:
             headers = {}
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers['X-Key'] = f'{self.api_key}'
             
             self._session = aiohttp.ClientSession(
                 headers=headers,

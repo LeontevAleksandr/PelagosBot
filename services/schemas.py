@@ -13,8 +13,8 @@ class Region:
     """Модель региона/локации"""
     id: int
     name: str
-    base_id: int = 1
     code: str
+    base_id: int = 1
     link: Optional[str] = None
     parent: Optional[int] = None
     radius: Optional[int] = None
@@ -68,16 +68,16 @@ class HotelRoom:
 class RoomPrices:
     """Модель цен номера"""
     schedule_type: int
-    sdt: Optional[int] = None
-    edt: Optional[int] = None
-    dt: Optional[int] = None
-    plst: List[PriceComponent] = field(default_factory=list)
     per: int
     period: int
     fill: int
     grp: int
     price: float
+    sdt: Optional[int] = None
+    edt: Optional[int] = None
+    dt: Optional[int] = None
     alt: Optional[str] = None
+    plst: List[any] = field(default_factory=list)
 
 @dataclass
 class Service:
