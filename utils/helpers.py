@@ -5,27 +5,43 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 
 
-def validate_price_range(text: str) -> tuple[bool, int, int]:
+def validate_price_range(text: str, currency: str = "usd") -> tuple[bool, int, int]:
     """
-    Валидация формата диапазона цен (50-1000)
+    Валидация формата диапазона цен с учетом валюты
     Возвращает: (валидно, min_price, max_price)
+
+    Args:
+        text: Текст диапазона в формате "min-max"
+        currency: Валюта для валидации ("usd", "rub", "peso")
     """
     pattern = r'^(\d+)-(\d+)$'
     match = re.match(pattern, text.strip())
-    
+
     if not match:
         return False, 0, 0
-    
+
     min_price = int(match.group(1))
     max_price = int(match.group(2))
-    
+
     # Проверка логики
     if min_price >= max_price:
         return False, 0, 0
-    
-    if min_price < 50 or max_price > 1000:
+
+    # Получаем курсы валют
+    rates = get_exchange_rates()
+
+    # Минимальная и максимальная цена в USD
+    min_usd_limit = 5
+    max_usd_limit = 1000
+
+    # Конвертируем в выбранную валюту для проверки границ
+    min_currency_limit = int(min_usd_limit * rates[currency])
+    max_currency_limit = int(max_usd_limit * rates[currency])
+
+    # Проверяем границы в выбранной валюте
+    if min_price < min_currency_limit or max_price > max_currency_limit:
         return False, 0, 0
-    
+
     return True, min_price, max_price
 
 

@@ -27,7 +27,7 @@ from utils.texts import (
     HOTELS_SELECT_STARS,
     HOTELS_SELECT_CURRENCY,
     HOTELS_SELECT_PRICE_METHOD,
-    HOTELS_INPUT_CUSTOM_RANGE,
+    get_hotels_input_custom_range_text,
     HOTELS_SELECT_PRICE_RANGE,
     HOTELS_SELECT_CHECK_IN,
     HOTELS_SELECT_CHECK_OUT,
@@ -180,12 +180,16 @@ async def select_currency(callback: CallbackQuery, state: FSMContext):
 async def select_price_method_custom(callback: CallbackQuery, state: FSMContext):
     """Выбран метод - собственный диапазон"""
     await callback.answer()
-    
+
+    # Получаем выбранную валюту
+    data = await state.get_data()
+    currency = data.get("currency", "usd")
+
     await callback.message.edit_text(
-        HOTELS_INPUT_CUSTOM_RANGE,
+        get_hotels_input_custom_range_text(currency),
         reply_markup=get_back_to_main_keyboard()
     )
-    
+
     await state.set_state(UserStates.HOTELS_INPUT_CUSTOM_RANGE)
 
 
@@ -209,25 +213,46 @@ async def select_price_method_list(callback: CallbackQuery, state: FSMContext):
 @router.message(UserStates.HOTELS_INPUT_CUSTOM_RANGE, F.text)
 async def process_custom_price_range(message: Message, state: FSMContext):
     """Обработка ввода собственного диапазона"""
-    valid, min_price, max_price = validate_price_range(message.text)
-    
+    # Получаем выбранную валюту
+    data = await state.get_data()
+    currency = data.get("currency", "usd")
+
+    # Валидируем с учетом валюты
+    valid, min_price, max_price = validate_price_range(message.text, currency)
+
     if not valid:
+        # Получаем лимиты для сообщения об ошибке
+        from utils.helpers import get_exchange_rates, get_currency_symbol
+        rates = get_exchange_rates()
+        symbol = get_currency_symbol(currency)
+        min_limit = int(5 * rates[currency])
+        max_limit = int(1000 * rates[currency])
+
         await message.answer(
-            "❌ Неверный формат! Пожалуйста, введите диапазон в формате: 50-1000",
+            f"❌ Неверный формат! Пожалуйста, введите диапазон в формате: {min_limit}-{max_limit}{symbol}",
             reply_markup=get_back_to_main_keyboard()
         )
         return
-    
+
     # Удаляем сообщение пользователя
     try:
         await message.delete()
     except:
         pass
-    
+
+    # Конвертируем цены в USD для фильтрации (т.к. цены в БД в USD)
+    if currency != "usd":
+        min_price_usd = int(convert_price(min_price, currency, "usd"))
+        max_price_usd = int(convert_price(max_price, currency, "usd"))
+    else:
+        min_price_usd = min_price
+        max_price_usd = max_price
+
     await state.update_data(
         price_range=f"{min_price}-{max_price}",
-        min_price=min_price,
-        max_price=max_price
+        min_price=min_price_usd,
+        max_price=max_price_usd,
+        display_currency=currency  # Сохраняем валюту для отображения
     )
 
     # Переходим к выбору дат

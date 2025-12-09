@@ -22,7 +22,30 @@ HOTELS_SELECT_CURRENCY = """Пожалуйста, выберите валюту 
 
 HOTELS_SELECT_PRICE_METHOD = """Выберите, как вам показать выбор стоимости для определения отеля:"""
 
-HOTELS_INPUT_CUSTOM_RANGE = """Напишите стоимость в долларах от и до какой суммы вы бы хотели заселиться в отеле, начиная от 50 до 1000$ в таком формате (50-1000):"""
+def get_hotels_input_custom_range_text(currency: str = "usd") -> str:
+    """Текст для ввода пользовательского диапазона цен с учетом валюты"""
+    from utils.helpers import get_exchange_rates, get_currency_symbol
+
+    rates = get_exchange_rates()
+    symbol = get_currency_symbol(currency)
+
+    # Минимальная и максимальная цена в USD
+    min_usd = 5
+    max_usd = 1000
+
+    # Конвертируем в выбранную валюту
+    min_price = int(min_usd * rates[currency])
+    max_price = int(max_usd * rates[currency])
+
+    currency_names = {
+        "usd": "долларах",
+        "rub": "рублях",
+        "peso": "песо"
+    }
+
+    currency_name = currency_names.get(currency, "долларах")
+
+    return f"""Напишите стоимость в {currency_name} от и до какой суммы вы бы хотели заселиться в отеле, начиная от {min_price} до {max_price}{symbol} в таком формате ({min_price}-{max_price}):"""
 
 HOTELS_SELECT_PRICE_RANGE = """Пожалуйста, выберите диапазон цен:"""
 
