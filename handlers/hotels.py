@@ -1,10 +1,13 @@
 """Обработчики флоу отелей"""
+import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
 
 from handlers.main_menu import show_main_menu
+
+logger = logging.getLogger(__name__)
 
 from states.user_states import UserStates
 from keyboards import (
@@ -51,7 +54,7 @@ from utils.helpers import (
     validate_phone_number,
     send_items_page
 )
-from utils.data_loader import data_loader
+from utils.data_loader import get_data_loader
 from utils.media_manager import get_hotel_photo
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
@@ -66,7 +69,7 @@ async def start_hotels_flow(callback: CallbackQuery, state: FSMContext):
     """Начало флоу отелей - вступительное сообщение"""
     await callback.answer()
     
-    hotels_count = data_loader.get_hotels_count()
+    hotels_count = 200
     
     await callback.message.edit_text(
         get_hotels_intro_text(hotels_count),
@@ -378,11 +381,13 @@ async def navigate_check_out_calendar(callback: CallbackQuery, state: FSMContext
 async def select_check_out_date(callback: CallbackQuery, state: FSMContext):
     """Выбор даты выезда"""
     await callback.answer()
-    
+
     check_out = callback.data.split(":")[1]
+    logger.info(f"📅 Выбрана дата выезда: {check_out}")
     await state.update_data(check_out=check_out)
-    
+
     # Показываем подтверждение и результаты
+    logger.info("🔍 Начинаем поиск отелей...")
     await show_hotels_results(callback.message, state)
 
 
@@ -391,7 +396,7 @@ async def select_check_out_date(callback: CallbackQuery, state: FSMContext):
 async def show_hotels_results(message: Message, state: FSMContext):
     """Показать результаты поиска отелей"""
     data = await state.get_data()
-    
+
     user_name = data.get("user_name", "Друг")
     island = data.get("island")
     stars = data.get("stars")
@@ -400,26 +405,44 @@ async def show_hotels_results(message: Message, state: FSMContext):
     check_out = format_date(data.get("check_out"))
     min_price = data.get("min_price")
     max_price = data.get("max_price")
-    
-    # Получаем отели по фильтрам
-    hotels = data_loader.get_hotels_by_filters(
+
+    logger.info(f"🏝️ Фильтры: island={island}, stars={stars}, price={min_price}-{max_price}")
+
+    # Получаем отели по фильтрам (быстрая загрузка - только первый с номерами)
+    logger.info("📡 Запрос отелей из API...")
+    result = await get_data_loader().get_hotels_by_filters(
         island=island,
         stars=stars,
         min_price=min_price,
-        max_price=max_price
+        max_price=max_price,
+        load_first_only=True  # Ленивая загрузка для скорости
     )
-    
+
+    hotels = result['hotels']
+    total = result['total']
+    logger.info(f"✅ Получено отелей: {len(hotels)} (всего найдено: {total})")
+
     if not hotels:
+        logger.warning("❌ Отели не найдены по заданным критериям")
         await message.edit_text(
             f"😔 К сожалению, по вашим критериям отели не найдены.\n\nПопробуйте изменить параметры поиска.",
             reply_markup=get_back_to_main_keyboard()
         )
         return
-    
-    # Сохраняем отели и индекс
-    await state.update_data(hotels=hotels, current_hotel_index=0)
-    
+
+    # Сохраняем отели, индекс и фильтры для дозагрузки
+    logger.info(f"💾 Сохраняем {len(hotels)} отелей в state")
+    await state.update_data(
+        hotels=hotels,
+        current_hotel_index=0,
+        total_hotels=total,
+        # Сохраняем фильтры для дозагрузки номеров при навигации
+        search_island=island,
+        search_stars=stars
+    )
+
     # Показываем подтверждение
+    logger.info("📝 Формируем текст подтверждения...")
     confirmation_text = get_hotels_confirmation_text(
         user_name,
         get_island_name_ru(island),
@@ -428,13 +451,16 @@ async def show_hotels_results(message: Message, state: FSMContext):
         check_in,
         check_out
     )
-    
+
+    logger.info("✏️ Редактируем сообщение с подтверждением...")
     await message.edit_text(confirmation_text)
-    
+
     # Показываем первый отель
+    logger.info("🏨 Показываем первую карточку отеля...")
     await show_hotel_card(message, state, 0)
-    
+
     await state.set_state(UserStates.HOTELS_SHOW_RESULTS)
+    logger.info("✅ show_hotels_results завершена успешно!")
 
 
 async def show_hotel_card(message: Message, state: FSMContext, index: int):
@@ -447,8 +473,28 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
 
     hotel = hotels[index]
 
-    # Получаем все доступные номера отеля
+    # Получаем номера отеля (если ещё не загружены - загружаем)
     rooms = hotel.get("rooms", [])
+    if not rooms:
+        logger.info(f"⚡ Дозагрузка номеров для отеля {hotel['id']}")
+        try:
+            # Получаем location_code из состояния для оптимизации
+            search_island = data.get('search_island')
+            # Загружаем номера для этого отеля
+            hotel_with_rooms = await get_data_loader().get_hotel_by_id(
+                int(hotel['id']),
+                location_code=search_island
+            )
+            if hotel_with_rooms:
+                rooms = hotel_with_rooms.get("rooms", [])
+                # Обновляем отель в списке
+                hotel['rooms'] = rooms
+                hotels[index] = hotel
+                await state.update_data(hotels=hotels)
+                logger.info(f"   ✓ Загружено {len(rooms)} номеров")
+        except Exception as e:
+            logger.error(f"   ❌ Ошибка загрузки номеров: {e}")
+            rooms = []
 
     # Формируем текст карточки
     card_text = get_hotel_card_text(hotel, rooms)
@@ -461,7 +507,8 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
     )
 
     # Пытаемся получить фото
-    photo = await get_hotel_photo(hotel["id"])
+    search_island = data.get('search_island')
+    photo = await get_hotel_photo(hotel["id"], location_code=search_island)
 
     if photo:
         # Отправляем с фото
@@ -586,9 +633,9 @@ async def process_room_count(message: Message, state: FSMContext):
         room_id = data.get("selected_room_id")
         check_in = format_date(data.get("check_in"))
         check_out = format_date(data.get("check_out"))
-        
-        hotel = data_loader.get_hotel_by_id(hotel_id)
-        room = data_loader.get_room_by_id(hotel_id, room_id)
+
+        hotel = await get_data_loader().get_hotel_by_id(int(hotel_id))
+        room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
 
         # Сохраняем количество комнат
         await state.update_data(room_count=room_count)
@@ -636,8 +683,8 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
     check_in = data.get("check_in")
     check_out = data.get("check_out")
 
-    hotel = data_loader.get_hotel_by_id(hotel_id)
-    room = data_loader.get_room_by_id(hotel_id, room_id)
+    hotel = await get_data_loader().get_hotel_by_id(int(hotel_id))
+    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
 
     check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
     check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
@@ -674,7 +721,7 @@ async def back_to_island(callback: CallbackQuery, state: FSMContext):
     """Назад к выбору острова"""
     await callback.answer()
 
-    hotels_count = data_loader.get_hotels_count()
+    hotels_count = get_data_loader().get_hotels_count()
 
     # Удаляем предыдущее сообщение (может быть с фото)
     try:

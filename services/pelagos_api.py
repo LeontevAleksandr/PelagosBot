@@ -242,23 +242,39 @@ class PelagosAPI:
         all_rooms = []
         perpage = 50
         start = 0
-        
-        while True:
+        max_iterations = 10  # Защита от бесконечного цикла
+
+        iteration = 0
+        while iteration < max_iterations:
+            iteration += 1
+            logger.debug(f"get_all_rooms({hotel_id}): итерация {iteration}, start={start}")
+
             result = await self.get_rooms(hotel_id, perpage, start)
             rooms = result['rooms']
-            
+
+            logger.debug(f"  └─ Получено {len(rooms)} номеров")
+
             if not rooms:
+                logger.debug(f"  └─ Номеров нет, выходим")
                 break
-                
+
             all_rooms.extend(rooms)
-            
+
             # Проверяем, есть ли еще номера
             pagination = result['pagination']
-            if pagination and (start + perpage >= pagination.total):
+            if not pagination:
+                logger.debug(f"  └─ Нет пагинации, выходим")
                 break
-                
+
+            if start + perpage >= pagination.total:
+                logger.debug(f"  └─ Достигнут конец ({start + perpage} >= {pagination.total}), выходим")
+                break
+
             start += perpage
-        
+
+        if iteration >= max_iterations:
+            logger.warning(f"⚠️ get_all_rooms({hotel_id}): достигнут лимит итераций ({max_iterations})")
+
         return all_rooms
     
     async def get_all_services(self, search: Optional[str] = None) -> List[Service]:

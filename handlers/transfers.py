@@ -17,7 +17,7 @@ from utils.texts import (
     get_transfer_card_text,
     get_transfer_booking_text
 )
-from utils.data_loader import data_loader
+from utils.data_loader import get_data_loader
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
 from utils.helpers import send_items_page
@@ -53,7 +53,7 @@ async def select_transfer_island(callback: CallbackQuery, state: FSMContext):
     island = callback.data.split(":")[1]
 
     # Получаем трансферы для этого острова
-    transfers = data_loader.get_transfers_by_island(island)
+    transfers = get_data_loader().get_transfers_by_island(island)
 
     if not transfers:
         await callback.message.edit_text(
@@ -211,7 +211,7 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     transfer_id = callback.data.split(":")[1]
-    transfer = data_loader.get_transfer_by_id(transfer_id)
+    transfer = get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
         return
@@ -235,7 +235,7 @@ async def add_transfer_to_order(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     transfer_id = data.get("selected_transfer_id")
     people_count = data.get("people_count", 1)
-    transfer = data_loader.get_transfer_by_id(transfer_id)
+    transfer = get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
         return
@@ -254,7 +254,7 @@ async def book_transfer_now(callback: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
     transfer_id = data.get("selected_transfer_id")
-    transfer = data_loader.get_transfer_by_id(transfer_id)
+    transfer = get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
         return

@@ -12,7 +12,7 @@ from utils.texts import (
     get_package_booking_text
 )
 from utils.helpers import get_calendar_keyboard, format_date, send_items_page
-from utils.data_loader import data_loader
+from utils.data_loader import get_data_loader
 from utils.media_manager import media_manager
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
@@ -77,7 +77,7 @@ async def select_package_date(callback: CallbackQuery, state: FSMContext):
     date = callback.data.split(":")[1]
     
     # Получаем пакетные туры близкие к этой дате
-    packages = data_loader.get_packages_by_date(date)
+    packages = get_data_loader().get_packages_by_date(date)
     
     if not packages:
         await callback.message.edit_text(
@@ -264,7 +264,7 @@ async def book_package(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     package_id = callback.data.split(":")[1]
-    package = data_loader.get_package_by_id(package_id)
+    package = get_data_loader().get_package_by_id(package_id)
 
     if not package:
         return
@@ -294,7 +294,7 @@ async def add_package_to_order(callback: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
     package_id = data.get("selected_package_id")
-    package = data_loader.get_package_by_id(package_id)
+    package = get_data_loader().get_package_by_id(package_id)
 
     if not package:
         return
@@ -313,7 +313,7 @@ async def book_package_now(callback: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
     package_id = data.get("selected_package_id")
-    package = data_loader.get_package_by_id(package_id)
+    package = get_data_loader().get_package_by_id(package_id)
 
     if not package:
         return

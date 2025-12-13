@@ -44,7 +44,7 @@ from utils.helpers import (
     validate_phone_number,
     send_items_page
 )
-from utils.data_loader import data_loader
+from utils.data_loader import get_data_loader
 from utils.media_manager import get_excursion_photo
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
@@ -143,7 +143,7 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
     island = data.get("island")
     
     # Получаем экскурсии на эту дату
-    excursions = data_loader.get_excursions_by_filters(
+    excursions = get_data_loader().get_excursions_by_filters(
         island=island,
         excursion_type="group",
         date=date
@@ -416,7 +416,7 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     excursion_id = callback.data.split(":")[1]
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
 
     if not excursion:
         return
@@ -471,7 +471,7 @@ async def process_private_people_count(message: Message, state: FSMContext):
         island = data.get("island")
         
         # Получаем индивидуальные экскурсии
-        excursions = data_loader.get_excursions_by_filters(
+        excursions = get_data_loader().get_excursions_by_filters(
             island=island,
             excursion_type="private"
         )
@@ -639,7 +639,7 @@ async def select_private_date(callback: CallbackQuery, state: FSMContext):
     excursion_id = data.get("selected_excursion_id")
     people_count = data.get("people_count")
 
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
 
     if not excursion:
         return
@@ -682,7 +682,7 @@ async def show_companions_list(message: Message, state: FSMContext, year: int, m
     island = data.get("island")
     
     # Получаем экскурсии за месяц
-    excursions = data_loader.get_companions_by_month(island, year, month)
+    excursions = get_data_loader().get_companions_by_month(island, year, month)
     
     await state.update_data(
         companions_month=month, 
@@ -746,7 +746,7 @@ async def view_companion_excursion(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     
     excursion_id = callback.data.split(":")[1]
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
     
     if not excursion:
         return
@@ -768,7 +768,7 @@ async def join_companion_excursion(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     excursion_id = callback.data.split(":")[1]
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
 
     if not excursion:
         return
@@ -849,7 +849,7 @@ async def create_companion_agree(callback: CallbackQuery, state: FSMContext):
     island = data.get("island")
     
     # Получаем все экскурсии для выбора
-    excursions = data_loader.get_excursions_by_filters(island=island)
+    excursions = get_data_loader().get_excursions_by_filters(island=island)
     
     if not excursions:
         await callback.message.edit_text(
@@ -874,7 +874,7 @@ async def select_excursion_for_companion(callback: CallbackQuery, state: FSMCont
     await callback.answer()
 
     excursion_id = callback.data.split(":")[1]
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
 
     if not excursion:
         await callback.answer("❌ Экскурсия не найдена", show_alert=True)
@@ -942,7 +942,7 @@ async def process_companion_people_count(message: Message, state: FSMContext):
         excursion_id = data.get("selected_excursion_id")
         date = data.get("companion_date")
         
-        excursion = data_loader.get_excursion_by_id(excursion_id)
+        excursion = get_data_loader().get_excursion_by_id(excursion_id)
         
         if not excursion:
             return
@@ -984,7 +984,7 @@ async def add_excursion_to_order(callback: CallbackQuery, state: FSMContext):
     excursion_id = data.get("selected_excursion_id")
     people_count = data.get("excursion_people_count", 1)
 
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
 
     # Добавляем в заказ
     updated_data = order_manager.add_excursion(data, excursion, people_count)
@@ -1121,7 +1121,7 @@ async def back_from_companion_calendar(callback: CallbackQuery, state: FSMContex
     data = await state.get_data()
     island = data.get("island")
 
-    excursions = data_loader.get_excursions_by_filters(island=island)
+    excursions = get_data_loader().get_excursions_by_filters(island=island)
 
     await callback.message.answer(
         COMPANIONS_SELECT_EXCURSION,

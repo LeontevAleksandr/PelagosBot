@@ -3,6 +3,7 @@
 """
 import asyncio
 import logging
+import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -12,6 +13,10 @@ from config import BOT_TOKEN
 
 # Импорт роутеров
 from handlers import start, main_menu, support, search, hotels, excursions, packages, transfers, order
+
+# Инициализация Pelagos API и data_loader
+from services.pelagos_api import PelagosAPI
+from utils.data_loader import set_data_loader
 
 # Настройка логирования
 logging.basicConfig(
@@ -23,22 +28,30 @@ logger = logging.getLogger(__name__)
 
 async def main():
     """Главная функция запуска бота"""
-    
+
     # Проверка токена
     if not BOT_TOKEN:
         logger.error("❌ BOT_TOKEN не найден в переменных окружения!")
         return
-    
+
+    # Инициализация Pelagos API
+    api_key = os.getenv("PELAGOS_API_KEY")
+    pelagos_api = PelagosAPI(api_key=api_key)
+
+    # Инициализация DataLoader с API
+    set_data_loader(pelagos_api)
+    logger.info("✅ Pelagos API и DataLoader инициализированы")
+
     # Инициализация бота и диспетчера
     bot = Bot(
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
-    
+
     # Используем MemoryStorage для FSM
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
-    
+
     # Регистрация роутеров (порядок важен!)
     dp.include_router(start.router)
     dp.include_router(main_menu.router)
@@ -49,17 +62,18 @@ async def main():
     dp.include_router(transfers.router)  # Флоу трансферов
     dp.include_router(support.router)
     dp.include_router(search.router)  # Должен быть последним для перехвата текста
-    
+
     logger.info("✅ Бот запущен")
-    
+
     try:
         # Удаляем вебхуки (если были)
         await bot.delete_webhook(drop_pending_updates=True)
-        
+
         # Запуск polling
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await bot.session.close()
+        await pelagos_api.close()
         logger.info("🛑 Бот остановлен")
 
 

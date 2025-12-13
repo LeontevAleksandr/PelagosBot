@@ -1,15 +1,22 @@
-"""Загрузчик данных из JSON (MVP)"""
+"""Загрузчик данных из JSON (MVP) и адаптер для Pelagos API"""
 import json
 import os
+import logging
+from typing import Optional, List
+from services.pelagos_api import PelagosAPI
+from services.schemas import Hotel, HotelRoom
+
+logger = logging.getLogger(__name__)
 
 
 class DataLoader:
-    """Класс для работы с mock данными"""
-    
-    def __init__(self, json_path: str = "data/mock_data.json"):
+    """Класс для работы с mock данными и Pelagos API"""
+
+    def __init__(self, api: Optional[PelagosAPI] = None, json_path: str = "data/mock_data.json"):
+        self.api = api
         self.json_path = json_path
         self.data = self._load_data()
-    
+
     def _load_data(self) -> dict:
         """Загрузить данные из JSON"""
         if not os.path.exists(self.json_path):
@@ -19,75 +26,165 @@ class DataLoader:
                 "users": {},
                 "orders": []
             }
-        
+
         with open(self.json_path, "r", encoding="utf-8") as f:
             return json.load(f)
-    
+
     def get_hotels_count(self) -> int:
         """Получить количество отелей"""
         return self.data.get("hotels_count", 150)
-    
-    def get_hotels_by_filters(
-        self, 
+
+    async def get_hotels_by_filters(
+        self,
         island: str = None,
         stars: int = None,
         min_price: float = None,
-        max_price: float = None
-    ) -> list:
+        max_price: float = None,
+        load_first_only: bool = True
+    ) -> dict:
         """
-        Получить отели по фильтрам
-        
+        Получить отели по фильтрам (из Pelagos API)
+
         Args:
             island: код острова
             stars: количество звезд
             min_price: минимальная цена
             max_price: максимальная цена
+            load_first_only: загрузить только первый отель с номерами (для быстрого отображения)
+
+        Returns:
+            dict: {
+                'hotels': list - список отелей (первый - с номерами, остальные - без),
+                'total': int - общее количество отелей
+            }
         """
-        hotels = self.data.get("hotels", [])
-        
-        # Фильтр по острову
-        if island:
-            hotels = [h for h in hotels if h["island"] == island]
-        
+        logger.info(f"🔍 get_hotels_by_filters: island={island}, stars={stars}, load_first_only={load_first_only}")
+
+        if not self.api or not island:
+            logger.warning(f"⚠️ Нет API или острова")
+            return {'hotels': [], 'total': 0}
+
+        # Получаем отели из API (только метаданные, без номеров)
+        logger.info(f"📡 Запрос отелей для {island}...")
+        hotels = await self.api.get_all_hotels(island)
+        logger.info(f"✅ Получено {len(hotels)} отелей")
+
         # Фильтр по звездам
         if stars:
-            hotels = [h for h in hotels if h["stars"] == stars]
-        
-        # Фильтр по цене (проверяем, что самый дешевый номер не превышает max_price на 30%)
-        if min_price is not None and max_price is not None:
-            filtered = []
-            max_allowed_price = max_price * 1.3  # +30% от максимальной цены
+            hotels = [h for h in hotels if h.stars == stars]
+            logger.info(f"⭐ После фильтра по звездам ({stars}): {len(hotels)} отелей")
 
-            for hotel in hotels:
-                rooms = hotel.get("rooms", [])
-                if rooms:
-                    # Находим самый дешевый номер
-                    cheapest_room_price = min(room["price"] for room in rooms)
-                    # Проверяем, что самый дешевый номер не дороже max_price + 30%
-                    if cheapest_room_price <= max_allowed_price:
-                        filtered.append(hotel)
-            hotels = filtered
-        
-        return hotels
-    
-    def get_hotel_by_id(self, hotel_id: str) -> dict:
-        """Получить отель по ID"""
-        hotels = self.data.get("hotels", [])
-        for hotel in hotels:
-            if hotel["id"] == hotel_id:
-                return hotel
-        return None
-    
-    def get_room_by_id(self, hotel_id: str, room_id: str) -> dict:
-        """Получить комнату по ID"""
-        hotel = self.get_hotel_by_id(hotel_id)
-        if not hotel:
+        total_hotels = len(hotels)
+
+        if not hotels:
+            return {'hotels': [], 'total': 0}
+
+        # Загружаем номера только для первого отеля
+        result = []
+        if load_first_only:
+            logger.info(f"⚡ Быстрая загрузка: получаем номера только для первого отеля")
+            try:
+                first_hotel = hotels[0]
+                logger.info(f"   🏨 Загружаем: {first_hotel.name} (id={first_hotel.id})")
+                rooms = await self.api.get_all_rooms(first_hotel.id)
+                logger.info(f"      ✓ Получено {len(rooms)} номеров")
+                result.append(self._convert_hotel(first_hotel, rooms))
+            except Exception as e:
+                logger.error(f"      ❌ Ошибка: {e}")
+                return {'hotels': [], 'total': 0}
+
+            # Остальные отели - без номеров (загрузим позже по запросу)
+            for hotel in hotels[1:]:
+                result.append(self._convert_hotel(hotel, []))
+
+        else:
+            # Загружаем все отели с номерами (старый способ)
+            logger.info(f"⏳ Полная загрузка: получаем номера для всех {len(hotels)} отелей...")
+            for i, hotel in enumerate(hotels):
+                try:
+                    rooms = await self.api.get_all_rooms(hotel.id)
+                    result.append(self._convert_hotel(hotel, rooms))
+                    if (i + 1) % 5 == 0:
+                        logger.info(f"   📊 Обработано {i+1}/{len(hotels)}")
+                except Exception as e:
+                    logger.error(f"   ❌ Ошибка для отеля {hotel.id}: {e}")
+                    continue
+
+        logger.info(f"✅ Возвращаем {len(result)} отелей (total={total_hotels})")
+        return {'hotels': result, 'total': total_hotels}
+
+    async def get_hotel_by_id(self, hotel_id: int, location_code: str = None) -> Optional[dict]:
+        """
+        Получить отель по ID (из Pelagos API)
+
+        Args:
+            hotel_id: ID отеля
+            location_code: код локации для оптимизации поиска
+        """
+        if not self.api:
             return None
 
-        for room in hotel.get("rooms", []):
-            if room["id"] == room_id:
-                return room
+        try:
+            # Если есть локация - ищем там, иначе используем общий поиск
+            if location_code:
+                # Получаем отели из конкретной локации
+                hotels_result = await self.api.get_hotels(location_code, perpage=100, start=0)
+                hotels = hotels_result.get('hotels', [])
+
+                # Ищем нужный отель
+                hotel = None
+                for h in hotels:
+                    if h.id == hotel_id:
+                        hotel = h
+                        break
+
+                if not hotel:
+                    logger.warning(f"⚠️ Отель {hotel_id} не найден в локации {location_code}")
+                    return None
+            else:
+                # Старый способ - поиск по всем регионам (медленно)
+                hotel = await self.api.get_hotel_by_id(hotel_id)
+                if not hotel:
+                    return None
+
+            # Загружаем номера
+            rooms = await self.api.get_all_rooms(hotel_id)
+            return self._convert_hotel(hotel, rooms)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка get_hotel_by_id({hotel_id}): {e}")
+            return None
+
+    async def get_room_by_id(self, hotel_id: int, room_id: int) -> Optional[dict]:
+        """Получить номер по ID (из Pelagos API)"""
+        if not self.api:
+            return None
+
+        rooms = await self.api.get_all_rooms(hotel_id)
+        for room in rooms:
+            if room.id == room_id:
+                return self._convert_room(room)
+
         return None
+
+    def _convert_hotel(self, hotel: Hotel, rooms: List[HotelRoom]) -> dict:
+        """Преобразовать Hotel в dict для обработчика"""
+        return {
+            'id': str(hotel.id),
+            'name': hotel.name,
+            'stars': hotel.stars or 0,
+            'island_name': hotel.address or 'Не указан',
+            'room_type': 'Стандарт',
+            'rooms': [self._convert_room(r) for r in rooms]
+        }
+
+    def _convert_room(self, room: HotelRoom) -> dict:
+        """Преобразовать HotelRoom в dict для обработчика"""
+        return {
+            'id': str(room.id),
+            'name': room.name,
+            'price': 100  # TODO: получить реальную цену через api.get_room_prices(room.id)
+        }
 
     # ========== ЭКСКУРСИИ ==========
     
@@ -217,5 +314,18 @@ class DataLoader:
         return None
 
 
-# Глобальный экземпляр
-data_loader = DataLoader()
+# Глобальный экземпляр (будет инициализирован с API в bot.py)
+_data_loader_instance = None
+
+
+def get_data_loader() -> DataLoader:
+    """Получить экземпляр DataLoader"""
+    if _data_loader_instance is None:
+        raise RuntimeError("DataLoader не инициализирован! Вызовите set_data_loader() в bot.py")
+    return _data_loader_instance
+
+
+def set_data_loader(api: PelagosAPI):
+    """Установить экземпляр DataLoader"""
+    global _data_loader_instance
+    _data_loader_instance = DataLoader(api=api)

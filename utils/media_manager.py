@@ -60,17 +60,21 @@ media_manager = MediaManager()
 
 # ========== Функции для будущей замены на БД ==========
 
-async def get_hotel_photo(hotel_id: str):
+async def get_hotel_photo(hotel_id: str, location_code: str = None):
     """
     Получить фото отеля.
     В будущем заменить на запрос к БД.
+
+    Args:
+        hotel_id: ID отеля
+        location_code: код локации для оптимизации поиска (опционально)
     """
-    from utils.data_loader import data_loader
-    
-    hotel = data_loader.get_hotel_by_id(hotel_id)
+    from utils.data_loader import get_data_loader
+
+    hotel = await get_data_loader().get_hotel_by_id(int(hotel_id), location_code=location_code)
     if not hotel:
         return None
-    
+
     photo_path = hotel.get("photo")
     return await media_manager.get_photo(photo_path)
 
@@ -80,9 +84,9 @@ async def get_excursion_photo(excursion_id: str):
     Получить фото экскурсии.
     В будущем заменить на запрос к БД.
     """
-    from utils.data_loader import data_loader
+    from utils.data_loader import get_data_loader
     
-    excursion = data_loader.get_excursion_by_id(excursion_id)
+    excursion = get_data_loader().get_excursion_by_id(excursion_id)
     if not excursion:
         return None
     
