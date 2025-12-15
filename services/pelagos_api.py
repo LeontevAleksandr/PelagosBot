@@ -107,17 +107,16 @@ class PelagosAPI:
         return all_hotels
     
     async def get_hotel_by_id(self, hotel_id: int) -> Optional[Hotel]:
-        """Получить отель по ID (через поиск)"""
-        # Если API не имеет прямого эндпоинта, ищем по всем регионам
-        regions = await self.get_regions()
-        
-        for region in regions[:3]:  # Ограничиваем поиск первыми 3 регионами
-            hotels = await self.get_all_hotels(region.code)
-            for hotel in hotels:
-                if hotel.id == hotel_id:
-                    return hotel
-        
-        return None
+        """
+        DEPRECATED: Не используйте этот метод напрямую!
+
+        Этот метод крайне неэффективен - он загружает все отели из нескольких регионов.
+        Вместо этого используйте data_loader.get_hotel_by_id() с location_code.
+
+        Оставлен только для обратной совместимости.
+        """
+        logger.warning(f"⚠️ DEPRECATED: get_hotel_by_id({hotel_id}) вызван без location_code. Используйте data_loader.get_hotel_by_id() с location_code!")
+        return None  # Отключаем этот метод
     
     # === НОМЕРА В ОТЕЛЕ ===
     
@@ -242,20 +241,16 @@ class PelagosAPI:
         all_rooms = []
         perpage = 50
         start = 0
-        max_iterations = 10  # Защита от бесконечного цикла
+        max_iterations = 10  # Защита: максимум 500 номеров (10 * 50)
 
         iteration = 0
         while iteration < max_iterations:
             iteration += 1
-            logger.debug(f"get_all_rooms({hotel_id}): итерация {iteration}, start={start}")
 
             result = await self.get_rooms(hotel_id, perpage, start)
             rooms = result['rooms']
 
-            logger.debug(f"  └─ Получено {len(rooms)} номеров")
-
             if not rooms:
-                logger.debug(f"  └─ Номеров нет, выходим")
                 break
 
             all_rooms.extend(rooms)
@@ -263,17 +258,15 @@ class PelagosAPI:
             # Проверяем, есть ли еще номера
             pagination = result['pagination']
             if not pagination:
-                logger.debug(f"  └─ Нет пагинации, выходим")
                 break
 
             if start + perpage >= pagination.total:
-                logger.debug(f"  └─ Достигнут конец ({start + perpage} >= {pagination.total}), выходим")
                 break
 
             start += perpage
 
         if iteration >= max_iterations:
-            logger.warning(f"⚠️ get_all_rooms({hotel_id}): достигнут лимит итераций ({max_iterations})")
+            logger.warning(f"⚠️ get_all_rooms({hotel_id}): достигнут лимит итераций ({max_iterations}), загружено {len(all_rooms)} номеров")
 
         return all_rooms
     

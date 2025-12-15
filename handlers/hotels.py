@@ -741,8 +741,9 @@ async def process_room_count(message: Message, state: FSMContext):
         room_id = data.get("selected_room_id")
         check_in = format_date(data.get("check_in"))
         check_out = format_date(data.get("check_out"))
+        search_island = data.get("search_island")
 
-        hotel = await get_data_loader().get_hotel_by_id(int(hotel_id))
+        hotel = await get_data_loader().get_hotel_by_id(int(hotel_id), location_code=search_island)
         room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
 
         # Сохраняем количество комнат
@@ -790,8 +791,9 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
     room_count = data.get("room_count", 1)
     check_in = data.get("check_in")
     check_out = data.get("check_out")
+    search_island = data.get("search_island")
 
-    hotel = await get_data_loader().get_hotel_by_id(int(hotel_id))
+    hotel = await get_data_loader().get_hotel_by_id(int(hotel_id), location_code=search_island)
     room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
 
     check_in_date = datetime.strptime(check_in, "%Y-%m-%d")

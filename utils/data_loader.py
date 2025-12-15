@@ -5,6 +5,7 @@ import logging
 from typing import Optional, List
 from services.pelagos_api import PelagosAPI
 from services.schemas import Hotel, HotelRoom
+from utils.cache_manager import get_cache_manager
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,10 @@ class DataLoader:
         self.api = api
         self.json_path = json_path
         self.data = self._load_data()
+        # Кэш для номеров отелей: {hotel_id: [rooms]}
+        self._rooms_cache = {}
+        # Redis кэш-менеджер
+        self.cache = get_cache_manager()
 
     def _load_data(self) -> dict:
         """Загрузить данные из JSON"""
@@ -74,12 +79,33 @@ class DataLoader:
         if per_page:
             # Если есть фильтр по звездам, загружаем с запасом
             if stars:
-                logger.info(f"📡 Загрузка всех отелей для фильтрации по {stars} звездам...")
-                all_hotels = await self.api.get_all_hotels(island)
+                # Пытаемся получить из кэша
+                cache_key = f"hotels:filtered:{island}:{stars}"
+                cached_filtered = self.cache.get(cache_key)
 
-                # Фильтруем по звездам
-                filtered_hotels = [h for h in all_hotels if h.stars == stars]
-                logger.info(f"⭐ После фильтра по звездам: {len(filtered_hotels)} отелей из {len(all_hotels)}")
+                if cached_filtered:
+                    logger.info(f"✓ Используем кэш отфильтрованных отелей ({len(cached_filtered)} шт)")
+                    filtered_hotels = [Hotel.from_dict(h) for h in cached_filtered]
+                else:
+                    logger.info(f"📡 Загрузка всех отелей для фильтрации по {stars} звездам...")
+                    all_hotels = await self.api.get_all_hotels(island)
+
+                    # Фильтруем по звездам
+                    filtered_hotels = [h for h in all_hotels if h.stars == stars]
+                    logger.info(f"⭐ После фильтра по звездам: {len(filtered_hotels)} отелей из {len(all_hotels)}")
+
+                    # Кэшируем отфильтрованный список (без номеров) на 10 минут
+                    filtered_dicts = [
+                        {
+                            'id': h.id,
+                            'name': h.name,
+                            'stars': h.stars,
+                            'address': h.address,
+                            'location': h.location
+                        }
+                        for h in filtered_hotels
+                    ]
+                    self.cache.set(cache_key, filtered_dicts, ttl=600)
 
                 # Применяем пагинацию к отфильтрованному списку
                 start_idx = page * per_page
@@ -139,11 +165,31 @@ class DataLoader:
                 result.append(self._convert_hotel(hotel, []))
 
         else:
-            # Загружаем все отели с номерами
+            # Загружаем все отели с номерами (с кэшированием)
             logger.info(f"⏳ Полная загрузка: получаем номера для всех {len(hotels)} отелей...")
             for i, hotel in enumerate(hotels):
                 try:
-                    rooms = await self.api.get_all_rooms(hotel.id)
+                    # Пытаемся получить номера из кэша
+                    cache_key = f"hotel:rooms:{hotel.id}"
+                    cached_rooms = self.cache.get(cache_key)
+
+                    if cached_rooms:
+                        logger.debug(f"✓ Используем кэш номеров для отеля {hotel.id}")
+                        rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
+                    else:
+                        rooms = await self.api.get_all_rooms(hotel.id)
+                        # Кэшируем номера на 10 минут
+                        rooms_dicts = [
+                            {
+                                'id': r.id,
+                                'name': r.name,
+                                'parent': r.parent,
+                                'type': r.type
+                            }
+                            for r in rooms
+                        ]
+                        self.cache.set(cache_key, rooms_dicts, ttl=600)
+
                     result.append(self._convert_hotel(hotel, rooms))
                     if (i + 1) % 5 == 0:
                         logger.info(f"   📊 Обработано {i+1}/{len(hotels)}")
@@ -220,11 +266,30 @@ class DataLoader:
             return None
 
     async def get_room_by_id(self, hotel_id: int, room_id: int) -> Optional[dict]:
-        """Получить номер по ID (из Pelagos API)"""
+        """
+        Получить номер по ID (из Pelagos API с кэшированием)
+
+        Args:
+            hotel_id: ID отеля
+            room_id: ID номера
+
+        Returns:
+            dict с данными номера или None
+        """
         if not self.api:
             return None
 
-        rooms = await self.api.get_all_rooms(hotel_id)
+        # Проверяем кэш
+        if hotel_id not in self._rooms_cache:
+            # Загружаем и кэшируем все номера отеля
+            rooms = await self.api.get_all_rooms(hotel_id)
+            self._rooms_cache[hotel_id] = rooms
+            logger.debug(f"Кэшировано {len(rooms)} номеров для отеля {hotel_id}")
+        else:
+            rooms = self._rooms_cache[hotel_id]
+            logger.debug(f"Использован кэш номеров для отеля {hotel_id}")
+
+        # Ищем нужный номер
         for room in rooms:
             if room.id == room_id:
                 return self._convert_room(room)
