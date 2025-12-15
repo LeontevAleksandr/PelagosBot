@@ -52,7 +52,8 @@ from utils.helpers import (
     get_currency_symbol,
     convert_price,
     validate_phone_number,
-    send_items_page
+    show_loading_message,
+    delete_loading_message
 )
 from utils.data_loader import get_data_loader
 from utils.media_manager import get_hotel_photo
@@ -408,6 +409,9 @@ async def show_hotels_results(message: Message, state: FSMContext):
 
     logger.info(f"🏝️ Фильтры: island={island}, stars={stars}, price={min_price}-{max_price}")
 
+    # Показываем сообщение о загрузке
+    loading_msg = await show_loading_message(message, "⏳ Загружаю актуальную информацию об отелях...")
+
     # Получаем отели по фильтрам (быстрая загрузка - только первый с номерами)
     logger.info("📡 Запрос отелей из API...")
     result = await get_data_loader().get_hotels_by_filters(
@@ -421,6 +425,9 @@ async def show_hotels_results(message: Message, state: FSMContext):
     hotels = result['hotels']
     total = result['total']
     logger.info(f"✅ Получено отелей: {len(hotels)} (всего найдено: {total})")
+
+    # Удаляем сообщение о загрузке
+    await delete_loading_message(loading_msg)
 
     if not hotels:
         logger.warning("❌ Отели не найдены по заданным критериям")
@@ -475,8 +482,11 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
 
     # Получаем номера отеля (если ещё не загружены - загружаем)
     rooms = hotel.get("rooms", [])
+    loading_msg = None
     if not rooms:
         logger.info(f"⚡ Дозагрузка номеров для отеля {hotel['id']}")
+        # Показываем сообщение о загрузке
+        loading_msg = await show_loading_message(message, "⏳ Загружаю информацию о номерах...")
         try:
             # Получаем location_code из состояния для оптимизации
             search_island = data.get('search_island')
@@ -495,6 +505,10 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
         except Exception as e:
             logger.error(f"   ❌ Ошибка загрузки номеров: {e}")
             rooms = []
+        finally:
+            # Удаляем сообщение о загрузке
+            if loading_msg:
+                await delete_loading_message(loading_msg)
 
     # Формируем текст карточки
     card_text = get_hotel_card_text(hotel, rooms)
@@ -528,11 +542,43 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
 
 
 async def send_hotels_cards_page(message: Message, state: FSMContext, page: int):
-    """Отправить страницу с отелями блоками (по 5 штук)"""
+    """
+    Отправить страницу с отелями блоками (использует API пагинацию)
+
+    Args:
+        page: номер страницы (1-based для пользователя)
+    """
     data = await state.get_data()
-    hotels = data.get("hotels", [])
+    search_island = data.get('search_island')
+    stars = data.get('stars')
+    min_price = data.get('min_price')
+    max_price = data.get('max_price')
+
+    if not search_island:
+        return
+
+    # Показываем сообщение о загрузке
+    loading_msg = await show_loading_message(message, "⏳ Загружаю отели...")
+
+    # Загружаем страницу через API (page - 1 потому что API использует 0-based)
+    result = await get_data_loader().get_hotels_by_filters(
+        island=search_island,
+        stars=stars,
+        min_price=min_price,
+        max_price=max_price,
+        load_first_only=False,  # Загружаем все отели на странице с номерами
+        page=page - 1,  # Конвертируем в 0-based для API
+        per_page=5
+    )
+
+    hotels = result['hotels']
+    total_pages = result['total_pages']
+
+    # Удаляем сообщение о загрузке
+    await delete_loading_message(loading_msg)
 
     if not hotels:
+        await message.answer("❌ На этой странице нет отелей")
         return
 
     # Функция форматирования карточки
@@ -544,23 +590,85 @@ async def send_hotels_cards_page(message: Message, state: FSMContext, page: int)
     def get_keyboard(hotel):
         return get_hotel_card_simple_keyboard(hotel["id"])
 
-    # Функция получения фото
+    # Функция получения фото с location_code
     async def get_photo(hotel):
-        return await get_hotel_photo(hotel["id"])
+        return await get_hotel_photo(hotel["id"], location_code=search_island)
 
-    # Используем универсальную функцию
-    await send_items_page(
-        message=message,
-        items=hotels,
-        page=page,
-        per_page=5,
-        format_card_func=format_card,
-        get_keyboard_func=get_keyboard,
-        get_photo_func=get_photo,
-        callback_prefix="cards_page",
-        page_title="Страница",
-        parse_mode="Markdown",
-        page_1_based=True
+    # Отправляем карточки отелей
+    import asyncio
+    for hotel in hotels:
+        card_text = format_card(hotel)
+        keyboard = get_keyboard(hotel)
+        photo = await get_photo(hotel)
+
+        try:
+            if photo:
+                await message.answer_photo(
+                    photo=photo,
+                    caption=card_text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+            else:
+                await message.answer(
+                    card_text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+            await asyncio.sleep(0.3)
+        except Exception as e:
+            logger.error(f"Ошибка при отправке карточки: {e}")
+            continue
+
+    # Формируем клавиатуру навигации
+    nav_buttons = []
+
+    # Кнопка "Назад"
+    if page > 1:
+        nav_buttons.append(InlineKeyboardButton(
+            text="⬅️ Назад",
+            callback_data=f"cards_page:{page - 1}"
+        ))
+
+    # Кнопки страниц
+    page_buttons = []
+    start_page = max(1, page - 2)
+    end_page = min(total_pages, start_page + 5)
+
+    for p in range(start_page, end_page + 1):
+        if p == page:
+            page_buttons.append(InlineKeyboardButton(
+                text=f"• {p} •",
+                callback_data=f"cards_page:{p}"
+            ))
+        else:
+            page_buttons.append(InlineKeyboardButton(
+                text=str(p),
+                callback_data=f"cards_page:{p}"
+            ))
+
+    # Кнопка "Вперед"
+    if page < total_pages:
+        nav_buttons.append(InlineKeyboardButton(
+            text="Вперед ➡️",
+            callback_data=f"cards_page:{page + 1}"
+        ))
+
+    # Формируем итоговую клавиатуру
+    control_buttons = []
+    if nav_buttons:
+        control_buttons.append(nav_buttons)
+    if page_buttons:
+        control_buttons.append(page_buttons)
+
+    control_buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    control_keyboard = InlineKeyboardMarkup(inline_keyboard=control_buttons)
+
+    await message.answer(
+        f"📋 Страница {page} из {total_pages}",
+        reply_markup=control_keyboard,
+        parse_mode="Markdown"
     )
 
 

@@ -1,7 +1,7 @@
 """Вспомогательные функции"""
 import re
 from datetime import datetime, timedelta
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 import requests
 
 
@@ -405,3 +405,30 @@ async def send_items_page(
         f"📋 {page_title} {page+1} из {total_pages}",
         **control_kwargs
     )
+
+
+async def show_loading_message(message: Message, text: str = "⏳ Загружаю актуальную информацию...") -> Message:
+    """
+    Показать сообщение о загрузке данных
+
+    Args:
+        message: Message объект
+        text: Текст сообщения (по умолчанию с эмодзи загрузки)
+
+    Returns:
+        Message объект отправленного сообщения (для последующего удаления)
+    """
+    return await message.answer(text)
+
+
+async def delete_loading_message(loading_msg: Message):
+    """
+    Удалить сообщение о загрузке
+
+    Args:
+        loading_msg: Message объект для удаления
+    """
+    try:
+        await loading_msg.delete()
+    except Exception:
+        pass  # Игнорируем ошибки удаления
