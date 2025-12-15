@@ -101,7 +101,8 @@ class DataLoader:
                             'name': h.name,
                             'stars': h.stars,
                             'address': h.address,
-                            'location': h.location
+                            'location': h.location,
+                            'pics': h.pics
                         }
                         for h in filtered_hotels
                     ]
@@ -153,8 +154,29 @@ class DataLoader:
             try:
                 first_hotel = hotels[0]
                 logger.info(f"   🏨 Загружаем: {first_hotel.name} (id={first_hotel.id})")
-                rooms = await self.api.get_all_rooms(first_hotel.id)
-                logger.info(f"      ✓ Получено {len(rooms)} номеров")
+
+                # Пытаемся получить номера из кэша
+                cache_key = f"hotel:rooms:{first_hotel.id}"
+                cached_rooms = self.cache.get(cache_key)
+
+                if cached_rooms:
+                    logger.info(f"      ✓ Используем кэш номеров ({len(cached_rooms)} шт)")
+                    rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
+                else:
+                    rooms = await self.api.get_all_rooms(first_hotel.id)
+                    logger.info(f"      ✓ Получено {len(rooms)} номеров")
+                    # Кэшируем номера на 10 минут
+                    rooms_dicts = [
+                        {
+                            'id': r.id,
+                            'name': r.name,
+                            'parent': r.parent,
+                            'type': r.type
+                        }
+                        for r in rooms
+                    ]
+                    self.cache.set(cache_key, rooms_dicts, ttl=600)
+
                 result.append(self._convert_hotel(first_hotel, rooms))
             except Exception as e:
                 logger.error(f"      ❌ Ошибка: {e}")
@@ -255,8 +277,26 @@ class DataLoader:
                 logger.warning(f"⚠️ Отель {hotel_id} не найден в локации {location_code}")
                 return None
 
-            # Загружаем номера
-            rooms = await self.api.get_all_rooms(hotel_id)
+            # Загружаем номера с кэшированием
+            cache_key = f"hotel:rooms:{hotel_id}"
+            cached_rooms = self.cache.get(cache_key)
+
+            if cached_rooms:
+                logger.info(f"✓ Используем кэш номеров для отеля {hotel_id} ({len(cached_rooms)} шт)")
+                rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
+            else:
+                rooms = await self.api.get_all_rooms(hotel_id)
+                # Кэшируем номера на 10 минут
+                rooms_dicts = [
+                    {
+                        'id': r.id,
+                        'name': r.name,
+                        'parent': r.parent,
+                        'type': r.type
+                    }
+                    for r in rooms
+                ]
+                self.cache.set(cache_key, rooms_dicts, ttl=600)
 
             # Используем async версию с загрузкой цен
             return await self._convert_hotel_async(hotel, rooms, load_prices=True)
@@ -319,24 +359,42 @@ class DataLoader:
             # Без цен
             rooms_data = [self._convert_room(r, None) for r in rooms]
 
+        # Формируем URL фото (первое из массива pics)
+        photo_url = None
+        if hotel.pics and len(hotel.pics) > 0:
+            pic = hotel.pics[0]
+            if isinstance(pic, dict) and 'md5' in pic and 'ext' in pic:
+                photo_url = f"https://app.pelagos.ru/pic/{pic['md5']}/{pic['md5']}.{pic['ext']}"
+
         return {
             'id': str(hotel.id),
             'name': hotel.name,
             'stars': hotel.stars or 0,
             'island_name': hotel.address or 'Не указан',
             'room_type': 'Стандарт',
-            'rooms': rooms_data
+            'rooms': rooms_data,
+            'photo': photo_url,
+            'pics': hotel.pics  # Сохраняем весь массив на случай нужды
         }
 
     def _convert_hotel(self, hotel: Hotel, rooms: List[HotelRoom]) -> dict:
         """Преобразовать Hotel в dict для обработчика (синхронная версия без цен)"""
+        # Формируем URL фото (первое из массива pics)
+        photo_url = None
+        if hotel.pics and len(hotel.pics) > 0:
+            pic = hotel.pics[0]
+            if isinstance(pic, dict) and 'md5' in pic and 'ext' in pic:
+                photo_url = f"https://app.pelagos.ru/pic/{pic['md5']}/{pic['md5']}.{pic['ext']}"
+
         return {
             'id': str(hotel.id),
             'name': hotel.name,
             'stars': hotel.stars or 0,
             'island_name': hotel.address or 'Не указан',
             'room_type': 'Стандарт',
-            'rooms': [self._convert_room(r, None) for r in rooms]
+            'rooms': [self._convert_room(r, None) for r in rooms],
+            'photo': photo_url,
+            'pics': hotel.pics  # Сохраняем весь массив на случай нужды
         }
 
     async def _get_room_price(self, room_id: int) -> float:

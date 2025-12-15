@@ -56,7 +56,6 @@ from utils.helpers import (
     delete_loading_message
 )
 from utils.data_loader import get_data_loader
-from utils.media_manager import get_hotel_photo
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
 
@@ -520,14 +519,13 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
         hotel_id=hotel["id"]
     )
 
-    # Пытаемся получить фото
-    search_island = data.get('search_island')
-    photo = await get_hotel_photo(hotel["id"], location_code=search_island)
+    # Получаем URL фото из данных отеля
+    photo_url = hotel.get("photo")
 
-    if photo:
+    if photo_url:
         # Отправляем с фото
         await message.answer_photo(
-            photo=photo,
+            photo=photo_url,
             caption=card_text,
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -590,21 +588,17 @@ async def send_hotels_cards_page(message: Message, state: FSMContext, page: int)
     def get_keyboard(hotel):
         return get_hotel_card_simple_keyboard(hotel["id"])
 
-    # Функция получения фото с location_code
-    async def get_photo(hotel):
-        return await get_hotel_photo(hotel["id"], location_code=search_island)
-
     # Отправляем карточки отелей
     import asyncio
     for hotel in hotels:
         card_text = format_card(hotel)
         keyboard = get_keyboard(hotel)
-        photo = await get_photo(hotel)
+        photo_url = hotel.get("photo")
 
         try:
-            if photo:
+            if photo_url:
                 await message.answer_photo(
-                    photo=photo,
+                    photo=photo_url,
                     caption=card_text,
                     reply_markup=keyboard,
                     parse_mode="Markdown"
@@ -919,17 +913,46 @@ async def view_hotel_rooms(callback: CallbackQuery, state: FSMContext):
 
     # Находим отель по ID
     hotel = None
-    for h in hotels:
+    hotel_index = None
+    for i, h in enumerate(hotels):
         if h["id"] == hotel_id:
             hotel = h
+            hotel_index = i
             break
 
     if not hotel:
         await callback.answer("Отель не найден", show_alert=True)
         return
 
-    # Получаем все доступные номера отеля
+    # Получаем номера отеля (если ещё не загружены - загружаем)
     rooms = hotel.get("rooms", [])
+    loading_msg = None
+    if not rooms:
+        logger.info(f"⚡ Дозагрузка номеров для отеля {hotel['id']}")
+        # Показываем сообщение о загрузке
+        loading_msg = await show_loading_message(callback.message, "⏳ Загружаю информацию о номерах...")
+        try:
+            # Получаем location_code из состояния для оптимизации
+            search_island = data.get('search_island')
+            # Загружаем номера для этого отеля
+            hotel_with_rooms = await get_data_loader().get_hotel_by_id(
+                int(hotel['id']),
+                location_code=search_island
+            )
+            if hotel_with_rooms:
+                rooms = hotel_with_rooms.get("rooms", [])
+                # Обновляем отель в списке
+                hotel['rooms'] = rooms
+                hotels[hotel_index] = hotel
+                await state.update_data(hotels=hotels)
+                logger.info(f"   ✓ Загружено {len(rooms)} номеров")
+        except Exception as e:
+            logger.error(f"   ❌ Ошибка загрузки номеров: {e}")
+            rooms = []
+        finally:
+            # Удаляем сообщение о загрузке
+            if loading_msg:
+                await delete_loading_message(loading_msg)
 
     if not rooms:
         await callback.answer("Нет доступных номеров", show_alert=True)
