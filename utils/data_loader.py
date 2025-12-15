@@ -397,9 +397,15 @@ class DataLoader:
     async def _get_room_price(self, room_id: int) -> float:
         """Получить цену номера из API"""
         try:
-            room_prices = await self.api.get_room_prices(room_id)
-            if room_prices and hasattr(room_prices, 'price'):
-                return float(room_prices.price)
+            data = await self.api.get_room_prices(room_id)
+            room_prices = []
+            for obj in data:
+                plst = obj.get('plst')
+                for price_data in plst:
+                    price = price_data.get('price')
+                    if price != 0:
+                        room_prices.append(price)
+            # return room_prices
         except Exception as e:
             logger.debug(f"⚠️ Не удалось получить цену для номера {room_id}: {e}")
         return 0.0
@@ -413,7 +419,7 @@ class DataLoader:
         }
 
     # ========== ЭКСКУРСИИ ==========
-    
+
     def get_excursions_by_filters(
         self,
         island: str = None,
@@ -422,28 +428,28 @@ class DataLoader:
     ) -> list:
         """
         Получить экскурсии по фильтрам
-        
+
         Args:
             island: код острова
             excursion_type: тип экскурсии (group, private, companions)
             date: дата в формате YYYY-MM-DD (для групповых и companions)
         """
         excursions = self.data.get("excursions", [])
-        
+
         # Фильтр по острову
         if island:
             excursions = [e for e in excursions if e["island"] == island]
-        
+
         # Фильтр по типу
         if excursion_type:
             excursions = [e for e in excursions if e["type"] == excursion_type]
-        
+
         # Фильтр по дате (для групповых и companions)
         if date:
             excursions = [e for e in excursions if e.get("date") == date]
-        
+
         return excursions
-    
+
     def get_excursion_by_id(self, excursion_id: str) -> dict:
         """Получить экскурсию по ID"""
         excursions = self.data.get("excursions", [])
@@ -451,13 +457,13 @@ class DataLoader:
             if excursion["id"] == excursion_id:
                 return excursion
         return None
-    
+
     def get_companions_by_month(self, island: str, year: int, month: int) -> list:
         """Получить экскурсии с поиском попутчиков за месяц"""
         from datetime import datetime
-        
+
         excursions = self.get_excursions_by_filters(island=island, excursion_type="companions")
-        
+
         # Фильтруем по месяцу
         result = []
         for exc in excursions:
@@ -468,44 +474,44 @@ class DataLoader:
                         result.append(exc)
                 except:
                     pass
-        
+
         return result
-    
+
     # ========== ПАКЕТНЫЕ ТУРЫ ==========
-    
+
     def get_packages_by_date(self, target_date: str = None) -> list:
         """
         Получить пакетные туры близкие к указанной дате
-        
+
         Args:
             target_date: дата в формате YYYY-MM-DD (если None - все туры)
         """
         from datetime import datetime, timedelta
-        
+
         packages = self.data.get("packages", [])
-        
+
         if not target_date:
             return packages
-        
+
         # Ищем туры, которые начинаются в пределах ±30 дней от указанной даты
         target = datetime.strptime(target_date, "%Y-%m-%d")
         result = []
-        
+
         for pkg in packages:
             try:
                 start_date = datetime.strptime(pkg["start_date"], "%Y-%m-%d")
                 diff = abs((start_date - target).days)
-                
+
                 if diff <= 30:  # В пределах месяца
                     result.append(pkg)
             except:
                 pass
-        
+
         # Сортируем по близости к дате
         result.sort(key=lambda p: abs((datetime.strptime(p["start_date"], "%Y-%m-%d") - target).days))
-        
+
         return result
-    
+
     def get_package_by_id(self, package_id: str) -> dict:
         """Получить пакетный тур по ID"""
         packages = self.data.get("packages", [])

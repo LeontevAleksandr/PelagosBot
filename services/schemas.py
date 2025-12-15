@@ -151,20 +151,14 @@ class HotelRoom:
             indescr=data.get('indescr'),
             pics=data.get('pics', [])
         )
-    
+
 @dataclass
 class RoomPrices:
     """Модель цен номера"""
     schedule_type: int
-    per: int
-    period: int
-    fill: int
-    grp: int
-    price: float
     sdt: Optional[int] = None
     edt: Optional[int] = None
     dt: Optional[int] = None
-    alt: Optional[str] = None
     plst: List[any] = field(default_factory=list)
 
     @classmethod
@@ -175,15 +169,9 @@ class RoomPrices:
 
         return cls(
             schedule_type=data.get('schedule_type', 0),
-            per=data.get('per', 0),
-            period=data.get('period', 0),
-            fill=data.get('fill', 0),
-            grp=data.get('grp', 0),
-            price=data.get('price', 0.0),
             sdt=data.get('sdt'),
             edt=data.get('edt'),
             dt=data.get('dt'),
-            alt=data.get('alt'),
             plst=data.get('plst', [])
         )
 
