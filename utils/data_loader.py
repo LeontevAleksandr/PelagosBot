@@ -1,4 +1,4 @@
-"""Загрузчик данных из JSON (MVP) и адаптер для Pelagos API"""
+"""Загрузчик данных для бота: работа с Pelagos API и кэширование"""
 import json
 import os
 import logging
@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class DataLoader:
-    """Класс для работы с mock данными и Pelagos API"""
+    """Класс для работы с Pelagos API и управления кэшем"""
+
+    # TTL для кэша (3 часа)
+    CACHE_TTL = 10800
 
     def __init__(self, api: Optional[PelagosAPI] = None, json_path: str = "data/mock_data.json"):
         self.api = api
@@ -23,21 +26,15 @@ class DataLoader:
         self.cache = get_cache_manager()
 
     def _load_data(self) -> dict:
-        """Загрузить данные из JSON"""
+        """Загрузить данные из JSON (только для экскурсий, трансферов, пакетов)"""
         if not os.path.exists(self.json_path):
             return {
-                "hotels_count": 150,
-                "hotels": [],
                 "users": {},
                 "orders": []
             }
 
         with open(self.json_path, "r", encoding="utf-8") as f:
             return json.load(f)
-
-    def get_hotels_count(self) -> int:
-        """Получить количество отелей"""
-        return self.data.get("hotels_count", 150)
 
     async def get_hotels_by_filters(
         self,
@@ -106,7 +103,7 @@ class DataLoader:
                         }
                         for h in filtered_hotels
                     ]
-                    self.cache.set(cache_key, filtered_dicts, ttl=600)
+                    self.cache.set(cache_key, filtered_dicts, ttl=self.CACHE_TTL)
 
                 # Применяем пагинацию к отфильтрованному списку
                 start_idx = page * per_page
@@ -165,7 +162,7 @@ class DataLoader:
                 else:
                     rooms = await self.api.get_all_rooms(first_hotel.id)
                     logger.info(f"      ✓ Получено {len(rooms)} номеров")
-                    # Кэшируем номера на 10 минут
+                    # Кэшируем номера
                     rooms_dicts = [
                         {
                             'id': r.id,
@@ -175,7 +172,7 @@ class DataLoader:
                         }
                         for r in rooms
                     ]
-                    self.cache.set(cache_key, rooms_dicts, ttl=600)
+                    self.cache.set(cache_key, rooms_dicts, ttl=self.CACHE_TTL)
 
                 result.append(self._convert_hotel(first_hotel, rooms))
             except Exception as e:
@@ -200,7 +197,7 @@ class DataLoader:
                         rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
                     else:
                         rooms = await self.api.get_all_rooms(hotel.id)
-                        # Кэшируем номера на 10 минут
+                        # Кэшируем номера
                         rooms_dicts = [
                             {
                                 'id': r.id,
@@ -210,7 +207,7 @@ class DataLoader:
                             }
                             for r in rooms
                         ]
-                        self.cache.set(cache_key, rooms_dicts, ttl=600)
+                        self.cache.set(cache_key, rooms_dicts, ttl=self.CACHE_TTL)
 
                     result.append(self._convert_hotel(hotel, rooms))
                     if (i + 1) % 5 == 0:
@@ -286,7 +283,7 @@ class DataLoader:
                 rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
             else:
                 rooms = await self.api.get_all_rooms(hotel_id)
-                # Кэшируем номера на 10 минут
+                # Кэшируем номера
                 rooms_dicts = [
                     {
                         'id': r.id,
@@ -296,7 +293,7 @@ class DataLoader:
                     }
                     for r in rooms
                 ]
-                self.cache.set(cache_key, rooms_dicts, ttl=600)
+                self.cache.set(cache_key, rooms_dicts, ttl=self.CACHE_TTL)
 
             # Используем async версию с загрузкой цен
             return await self._convert_hotel_async(hotel, rooms, load_prices=True)

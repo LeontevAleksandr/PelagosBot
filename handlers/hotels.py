@@ -825,8 +825,6 @@ async def back_to_island(callback: CallbackQuery, state: FSMContext):
     """Назад к выбору острова"""
     await callback.answer()
 
-    hotels_count = get_data_loader().get_hotels_count()
-
     # Удаляем предыдущее сообщение (может быть с фото)
     try:
         await callback.message.delete()
@@ -835,7 +833,7 @@ async def back_to_island(callback: CallbackQuery, state: FSMContext):
 
     # Отправляем новое сообщение
     await callback.message.answer(
-        get_hotels_intro_text(hotels_count),
+        get_hotels_intro_text(200),
         reply_markup=get_islands_keyboard(),
         parse_mode="Markdown"
     )
