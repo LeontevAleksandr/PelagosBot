@@ -16,7 +16,8 @@ from handlers import start, main_menu, support, search, hotels, excursions, pack
 
 # Инициализация Pelagos API и data_loader
 from services.pelagos_api import PelagosAPI
-from utils.data_loader import set_data_loader
+from utils.data_loader import set_data_loader, get_data_loader
+from utils.preloader import init_preloader
 
 # Настройка логирования
 logging.basicConfig(
@@ -41,6 +42,10 @@ async def main():
     # Инициализация DataLoader с API
     set_data_loader(pelagos_api)
     logger.info("✅ Pelagos API и DataLoader инициализированы")
+
+    # Инициализация предзагрузчика отелей
+    init_preloader(get_data_loader())
+    logger.info("✅ Preloader инициализирован")
 
     # Инициализация бота и диспетчера
     bot = Bot(

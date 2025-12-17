@@ -1,4 +1,5 @@
 """Обработчики флоу отелей"""
+import asyncio
 import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
@@ -44,6 +45,7 @@ from utils.texts import (
     get_hotel_list_item_text,
     get_hotel_rooms_text
 )
+from utils.preloader import get_preloader
 from utils.helpers import (
     validate_price_range,
     get_calendar_keyboard,
@@ -60,6 +62,24 @@ from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
 
 router = Router()
+
+
+# ========== Вспомогательные функции ==========
+
+async def _preload_hotel_rooms(hotel: dict, state_data: dict):
+    """Фоновая предзагрузка номеров отеля"""
+    try:
+        hotel_with_rooms = await get_data_loader().get_hotel_by_id(
+            int(hotel['id']),
+            location_code=state_data.get('search_island'),
+            check_in=state_data.get('check_in'),
+            check_out=state_data.get('check_out')
+        )
+        if hotel_with_rooms:
+            hotel['rooms'] = hotel_with_rooms.get('rooms', [])
+            logger.debug(f"✅ Предзагружено {len(hotel['rooms'])} номеров для отеля {hotel['id']}")
+    except Exception as e:
+        logger.debug(f"⚠️ Ошибка предзагрузки отеля {hotel.get('id')}: {e}")
 
 
 # ========== Старт флоу отелей ==========
@@ -429,6 +449,10 @@ async def show_hotels_results(message: Message, state: FSMContext):
     # Удаляем сообщение о загрузке
     await delete_loading_message(loading_msg)
 
+    # Запускаем предзагрузку второго отеля в фоне (первый уже загружен)
+    if len(hotels) > 1 and not hotels[1].get("rooms"):
+        asyncio.create_task(_preload_hotel_rooms(hotels[1], data))
+
     if not hotels:
         logger.warning("❌ Отели не найдены по заданным критериям")
         await message.edit_text(
@@ -514,6 +538,12 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
             if loading_msg:
                 await delete_loading_message(loading_msg)
 
+    # Запускаем предзагрузку следующего отеля в фоне
+    if index + 1 < len(hotels):
+        next_hotel = hotels[index + 1]
+        if not next_hotel.get("rooms"):
+            asyncio.create_task(_preload_hotel_rooms(next_hotel, data))
+
     # Формируем текст карточки
     card_text = get_hotel_card_text(hotel, rooms)
 
@@ -580,6 +610,17 @@ async def send_hotels_cards_page(message: Message, state: FSMContext, page: int)
 
     # Удаляем сообщение о загрузке
     await delete_loading_message(loading_msg)
+
+    # Запускаем предзагрузку следующей страницы в фоне
+    preloader = get_preloader()
+    if preloader and page < total_pages:
+        preloader.preload_next(
+            island=search_island,
+            stars=stars,
+            current_page=page + 1,
+            check_in=data.get("check_in"),
+            check_out=data.get("check_out")
+        )
 
     if not hotels:
         await message.answer("❌ На этой странице нет отелей")
@@ -973,6 +1014,12 @@ async def view_hotel_rooms(callback: CallbackQuery, state: FSMContext):
             # Удаляем сообщение о загрузке
             if loading_msg:
                 await delete_loading_message(loading_msg)
+
+    # Запускаем предзагрузку следующего отеля в фоне
+    if hotel_index + 1 < len(hotels):
+        next_hotel = hotels[hotel_index + 1]
+        if not next_hotel.get("rooms"):
+            asyncio.create_task(_preload_hotel_rooms(next_hotel, data))
 
     if not rooms:
         await callback.answer("Нет доступных номеров", show_alert=True)

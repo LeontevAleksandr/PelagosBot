@@ -74,7 +74,7 @@ def get_hotels_confirmation_text(name: str, island: str, stars: str, price: str,
 def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
     """Форматирование карточки отеля"""
     # Получаем диапазон цен (исключаем нулевые цены)
-    prices = [room['price'] for room in rooms if room['price'] > 0] if rooms else []
+    prices = [room['price'] for room in rooms if room.get('price') and room['price'] > 0] if rooms else []
 
     if prices:
         min_price = min(prices)
@@ -84,9 +84,14 @@ def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
         else:
             price_text = f"${min_price} - ${max_price}"
     else:
-        price_text = "Цена не указана"
+        # Если цены не загружены, показываем что они будут при просмотре
+        if rooms:
+            price_text = "Загрузятся при просмотре"
+        else:
+            price_text = "Нет доступных номеров"
 
     stars_text = "⭐" * hotel['stars']
+    rooms_count = len(rooms) if rooms else 0
 
     return f"""**{hotel['name']}**
 
@@ -94,7 +99,7 @@ def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
 Звезды: {stars_text}
 Остров: {hotel['island_name']}
 
-Найдено {len(rooms)} вариантов
+Найдено {rooms_count} вариантов
 Диапазон цен: {price_text}"""
 
 

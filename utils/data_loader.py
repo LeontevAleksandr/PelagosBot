@@ -193,9 +193,48 @@ class DataLoader:
             logger.error(f"      ❌ Ошибка: {e}")
             return {'hotels': [], 'total': 0, 'page': page, 'total_pages': 0}
 
-        # Остальные отели - без номеров (загрузим позже по запросу)
-        for hotel in hotels[1:]:
-            result.append(self._convert_hotel(hotel, []))
+        # Остальные отели - загружаем номера параллельно (но без цен)
+        import asyncio
+
+        async def load_hotel_rooms(hotel):
+            """Загрузить номера для отеля"""
+            try:
+                cache_key = f"hotel:rooms:{hotel.id}"
+                cached_rooms = self.cache.get(cache_key)
+
+                if cached_rooms:
+                    rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
+                else:
+                    rooms = await self.api.get_all_rooms(hotel.id)
+                    # Кэшируем номера
+                    rooms_dicts = [
+                        {
+                            'id': r.id,
+                            'name': r.name,
+                            'parent': r.parent,
+                            'type': r.type
+                        }
+                        for r in rooms
+                    ]
+                    self.cache.set(cache_key, rooms_dicts, ttl=self.CACHE_TTL)
+
+                # Конвертируем без загрузки цен
+                return await self._convert_hotel_async(
+                    hotel, rooms, load_prices=False, check_in=check_in, check_out=check_out
+                )
+            except Exception as e:
+                logger.error(f"   ❌ Ошибка для отеля {hotel.id}: {e}")
+                return self._convert_hotel(hotel, [])
+
+        # Параллельная загрузка остальных отелей
+        other_hotels_tasks = [load_hotel_rooms(h) for h in hotels[1:]]
+        other_hotels_data = await asyncio.gather(*other_hotels_tasks, return_exceptions=True)
+
+        for hotel_data in other_hotels_data:
+            if isinstance(hotel_data, Exception):
+                logger.error(f"   ❌ Ошибка загрузки отеля: {hotel_data}")
+            else:
+                result.append(hotel_data)
 
         logger.info(f"✅ Возвращаем {len(result)} отелей (total={total_hotels}, page={page}/{total_pages})")
         return {
