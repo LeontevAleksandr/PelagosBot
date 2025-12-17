@@ -67,7 +67,7 @@ router = Router()
 # ========== Вспомогательные функции ==========
 
 async def _preload_hotel_rooms(hotel: dict, state_data: dict):
-    """Фоновая предзагрузка номеров отеля"""
+    """Фоновая предзагрузка номеров и цен отеля"""
     try:
         hotel_with_rooms = await get_data_loader().get_hotel_by_id(
             int(hotel['id']),
@@ -77,7 +77,8 @@ async def _preload_hotel_rooms(hotel: dict, state_data: dict):
         )
         if hotel_with_rooms:
             hotel['rooms'] = hotel_with_rooms.get('rooms', [])
-            logger.debug(f"✅ Предзагружено {len(hotel['rooms'])} номеров для отеля {hotel['id']}")
+            prices_count = len([r for r in hotel['rooms'] if r.get('price', 0) > 0])
+            logger.info(f"✅ Предзагружено {len(hotel['rooms'])} номеров ({prices_count} с ценами) для отеля {hotel['id']}")
     except Exception as e:
         logger.debug(f"⚠️ Ошибка предзагрузки отеля {hotel.get('id')}: {e}")
 
@@ -429,9 +430,9 @@ async def show_hotels_results(message: Message, state: FSMContext):
     logger.info(f"🏝️ Фильтры: island={island}, stars={stars}, price={min_price}-{max_price}")
 
     # Показываем сообщение о загрузке
-    loading_msg = await show_loading_message(message, "⏳ Загружаю актуальную информацию об отелях...")
+    loading_msg = await show_loading_message(message, "⏳ Загружаю отели...")
 
-    # Получаем отели по фильтрам (быстрая загрузка - только первый с номерами)
+    # Получаем отели (первый загружается с ценами, остальные 14 параллельно, остальные без цен)
     logger.info("📡 Запрос отелей из API...")
     result = await get_data_loader().get_hotels_by_filters(
         island=island,
@@ -448,10 +449,6 @@ async def show_hotels_results(message: Message, state: FSMContext):
 
     # Удаляем сообщение о загрузке
     await delete_loading_message(loading_msg)
-
-    # Запускаем предзагрузку второго отеля в фоне (первый уже загружен)
-    if len(hotels) > 1 and not hotels[1].get("rooms"):
-        asyncio.create_task(_preload_hotel_rooms(hotels[1], data))
 
     if not hotels:
         logger.warning("❌ Отели не найдены по заданным критериям")

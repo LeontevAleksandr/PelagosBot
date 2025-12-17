@@ -84,11 +84,7 @@ def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
         else:
             price_text = f"${min_price} - ${max_price}"
     else:
-        # Если цены не загружены, показываем что они будут при просмотре
-        if rooms:
-            price_text = "Загрузятся при просмотре"
-        else:
-            price_text = "Нет доступных номеров"
+        price_text = "Цены не указаны"
 
     stars_text = "⭐" * hotel['stars']
     rooms_count = len(rooms) if rooms else 0
