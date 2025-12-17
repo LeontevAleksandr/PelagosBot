@@ -73,8 +73,8 @@ def get_hotels_confirmation_text(name: str, island: str, stars: str, price: str,
 
 def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
     """Форматирование карточки отеля"""
-    # Получаем диапазон цен
-    prices = [room['price'] for room in rooms] if rooms else []
+    # Получаем диапазон цен (исключаем нулевые цены)
+    prices = [room['price'] for room in rooms if room['price'] > 0] if rooms else []
 
     if prices:
         min_price = min(prices)
@@ -129,7 +129,14 @@ def get_hotel_list_item_text(hotel: dict, rooms: list) -> str:
     if not rooms:
         return hotel['name']
 
-    prices = [room['price'] for room in rooms]
+    # Исключаем нулевые цены из расчета диапазона
+    prices = [room['price'] for room in rooms if room['price'] > 0]
+
+    if not prices:
+        # Если нет ценовых данных
+        stars = "⭐" * hotel['stars']
+        return f"{hotel['name']} {stars}"
+
     min_price = min(prices)
     max_price = max(prices)
 
@@ -143,8 +150,12 @@ def get_hotel_list_item_text(hotel: dict, rooms: list) -> str:
 
 def get_hotel_rooms_text(hotel: dict, rooms: list) -> str:
     """Форматирование списка номеров отеля для просмотра"""
+    # Показываем прочерк для номеров без цены
+    def format_price(price):
+        return f"${price}" if price and price > 0 else "—"
+
     rooms_text = "\n".join([
-        f"{i+1}. {room['name']}: ${room['price']}"
+        f"{i+1}. {room['name']}: {format_price(room['price'])}"
         for i, room in enumerate(rooms)
     ])
 

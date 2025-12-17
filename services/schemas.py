@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional, List, Any
 
 @dataclass
 class Pagination:
@@ -80,6 +80,7 @@ class Hotel:
     html: Optional[str] = None
     indescr: Optional[str] = None
     pics: List[str] = field(default_factory=list)
+    ord: Optional[int] = None  # Рейтинг отеля (объединяет рейтинг, продажи, отзывы)
 
     @classmethod
     def from_dict(cls, data: dict) -> Optional['Hotel']:
@@ -104,7 +105,8 @@ class Hotel:
             announce=data.get('announce'),
             html=data.get('html'),
             indescr=data.get('indescr'),
-            pics=data.get('pics', [])
+            pics=data.get('pics', []),
+            ord=data.get('ord', 0)
         )
 
 @dataclass
@@ -159,7 +161,7 @@ class RoomPrices:
     sdt: Optional[int] = None
     edt: Optional[int] = None
     dt: Optional[int] = None
-    plst: List[any] = field(default_factory=list)
+    plst: List[Any] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> Optional['RoomPrices']:

@@ -1,4 +1,11 @@
-"""Менеджер кэширования с использованием Redis"""
+"""Менеджер кэширования с использованием Redis
+    python clear_cache.py
+    python clear_cache.py --pattern "room:price:*" Очистит только цены
+    python clear_cache.py --pattern "hotel:rooms:*" Очистит только номера отелей
+    python clear_cache.py --stats Посмотреть статистику кэша
+
+
+"""
 import json
 import logging
 from typing import Optional, Any

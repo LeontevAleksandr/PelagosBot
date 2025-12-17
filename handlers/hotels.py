@@ -418,7 +418,8 @@ async def show_hotels_results(message: Message, state: FSMContext):
         stars=stars,
         min_price=min_price,
         max_price=max_price,
-        load_first_only=True  # Ленивая загрузка для скорости
+        check_in=data.get("check_in"),
+        check_out=data.get("check_out")
     )
 
     hotels = result['hotels']
@@ -487,12 +488,16 @@ async def show_hotel_card(message: Message, state: FSMContext, index: int):
         # Показываем сообщение о загрузке
         loading_msg = await show_loading_message(message, "⏳ Загружаю информацию о номерах...")
         try:
-            # Получаем location_code из состояния для оптимизации
+            # Получаем location_code и даты из состояния
             search_island = data.get('search_island')
-            # Загружаем номера для этого отеля
+            check_in = data.get('check_in')
+            check_out = data.get('check_out')
+            # Загружаем номера для этого отеля с актуальными ценами
             hotel_with_rooms = await get_data_loader().get_hotel_by_id(
                 int(hotel['id']),
-                location_code=search_island
+                location_code=search_island,
+                check_in=check_in,
+                check_out=check_out
             )
             if hotel_with_rooms:
                 rooms = hotel_with_rooms.get("rooms", [])
@@ -564,9 +569,10 @@ async def send_hotels_cards_page(message: Message, state: FSMContext, page: int)
         stars=stars,
         min_price=min_price,
         max_price=max_price,
-        load_first_only=False,  # Загружаем все отели на странице с номерами
         page=page - 1,  # Конвертируем в 0-based для API
-        per_page=5
+        per_page=5,
+        check_in=data.get("check_in"),
+        check_out=data.get("check_out")
     )
 
     hotels = result['hotels']
@@ -733,11 +739,18 @@ async def process_room_count(message: Message, state: FSMContext):
         data = await state.get_data()
         hotel_id = data.get("selected_hotel_id")
         room_id = data.get("selected_room_id")
-        check_in = format_date(data.get("check_in"))
-        check_out = format_date(data.get("check_out"))
+        check_in_raw = data.get("check_in")  # YYYY-MM-DD формат
+        check_out_raw = data.get("check_out")  # YYYY-MM-DD формат
+        check_in = format_date(check_in_raw)  # Форматированная дата для отображения
+        check_out = format_date(check_out_raw)  # Форматированная дата для отображения
         search_island = data.get("search_island")
 
-        hotel = await get_data_loader().get_hotel_by_id(int(hotel_id), location_code=search_island)
+        hotel = await get_data_loader().get_hotel_by_id(
+            int(hotel_id),
+            location_code=search_island,
+            check_in=check_in_raw,
+            check_out=check_out_raw
+        )
         room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
 
         # Сохраняем количество комнат
@@ -787,7 +800,12 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
     check_out = data.get("check_out")
     search_island = data.get("search_island")
 
-    hotel = await get_data_loader().get_hotel_by_id(int(hotel_id), location_code=search_island)
+    hotel = await get_data_loader().get_hotel_by_id(
+        int(hotel_id),
+        location_code=search_island,
+        check_in=check_in,
+        check_out=check_out
+    )
     room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
 
     check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
@@ -930,12 +948,16 @@ async def view_hotel_rooms(callback: CallbackQuery, state: FSMContext):
         # Показываем сообщение о загрузке
         loading_msg = await show_loading_message(callback.message, "⏳ Загружаю информацию о номерах...")
         try:
-            # Получаем location_code из состояния для оптимизации
+            # Получаем location_code и даты из состояния
             search_island = data.get('search_island')
-            # Загружаем номера для этого отеля
+            check_in = data.get('check_in')
+            check_out = data.get('check_out')
+            # Загружаем номера для этого отеля с актуальными ценами
             hotel_with_rooms = await get_data_loader().get_hotel_by_id(
                 int(hotel['id']),
-                location_code=search_island
+                location_code=search_island,
+                check_in=check_in,
+                check_out=check_out
             )
             if hotel_with_rooms:
                 rooms = hotel_with_rooms.get("rooms", [])

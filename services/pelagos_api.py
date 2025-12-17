@@ -99,19 +99,6 @@ class PelagosAPI:
 
         return all_hotels
 
-    async def get_hotel_by_id(self, hotel_id: int) -> Optional[Hotel]:
-        """
-        DEPRECATED: Не используйте этот метод напрямую!
-
-        Этот метод крайне неэффективен - он загружает все отели из нескольких регионов.
-        Вместо этого используйте data_loader.get_hotel_by_id() с location_code.
-
-        Оставлен только для обратной совместимости.
-        """
-        logger.warning(
-            f"⚠️ DEPRECATED: get_hotel_by_id({hotel_id}) вызван без location_code. Используйте data_loader.get_hotel_by_id() с location_code!"
-        )
-        return None  # Отключаем этот метод
 
     # === НОМЕРА В ОТЕЛЕ ===
 
@@ -130,7 +117,7 @@ class PelagosAPI:
             dict с ключами: rooms, pagination
         """
         endpoint = f"export-hotels-rooms/{hotel_id}/"
-        params = {"perpage": perpage, "start": start} if perpage or start else None
+        params = {"perpage": perpage, "start": start}
 
         data = await self.client.get(endpoint, params=params)
 
@@ -186,21 +173,39 @@ class PelagosAPI:
     async def get_room_prices(self, room_id: int) -> List[RoomPrices]:
         """Получить цены номера"""
         endpoint = f"export-hotels-rooms-prices/{room_id}/"
+        full_url = f"{self.client.base_url}/{endpoint}"
+
+        logger.info(f"🌐 API запрос цен: {full_url}")
 
         data = await self.client.get(endpoint)
 
         result = data.get("prices") or []
 
+        logger.debug(f"📦 Ответ API для номера {room_id}: {len(result)} ценников")
+        if logger.isEnabledFor(logging.DEBUG):
+            import json
+            logger.debug(f"📄 Полное тело ответа:\n{json.dumps(data, indent=2, ensure_ascii=False)}")
+
         return result
 
     # === ПОИСК ===
 
-    async def search_hotels(self, query: str, limit: int = 10) -> List[Hotel]:
-        """Поиск отелей по названию"""
+    async def search_hotels(self, query: str, limit: int = 10, regions_limit: int = 3) -> List[Hotel]:
+        """
+        Поиск отелей по названию
+
+        Args:
+            query: поисковый запрос
+            limit: максимальное количество результатов
+            regions_limit: количество регионов для поиска (по умолчанию 3)
+
+        Returns:
+            список найденных отелей
+        """
         results = []
         all_regions = await self.get_regions()
-        # Используем только регионы с родителями (не корневые), первые 3
-        child_regions = [r for r in all_regions if r.parent and r.parent != 0][:3]
+        # Используем только регионы с родителями (не корневые)
+        child_regions = [r for r in all_regions if r.parent and r.parent != 0][:regions_limit]
 
         for region in child_regions:
             hotels = await self.get_all_hotels(region.code)

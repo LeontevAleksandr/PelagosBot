@@ -39,7 +39,8 @@ class APIClient:
         session = await self.get_session()
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
 
-        logger.debug(f"Request: {method} {url} {params if params else ''}")
+        params_str = f"?{params}" if params else ""
+        logger.debug(f"Request: {method} {url}{params_str}")
 
         try:
             async with session.request(
