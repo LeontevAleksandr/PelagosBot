@@ -66,6 +66,10 @@ class DataLoader:
         """Получить номер по ID"""
         return await self.hotels_loader.get_room_by_id(hotel_id=hotel_id, room_id=room_id)
 
+    async def get_all_locations(self) -> list:
+        """Получить все доступные локации/острова"""
+        return await self.hotels_loader.get_all_locations()
+
     # ========== ЭКСКУРСИИ (делегирование в ExcursionsLoader) ==========
 
     def get_excursions_by_filters(

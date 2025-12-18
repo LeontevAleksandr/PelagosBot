@@ -107,23 +107,123 @@ async def start_hotels_flow(callback: CallbackQuery, state: FSMContext):
 async def select_island(callback: CallbackQuery, state: FSMContext):
     """Выбор острова"""
     await callback.answer()
-    
+
     island_code = callback.data.split(":")[1]
-    
+
     if island_code == "other":
-        # TODO: Реализовать ввод текстом
-        await callback.answer("Функция в разработке", show_alert=True)
+        # Показываем все доступные локации из API
+        loading_msg = await callback.message.edit_text("⏳ Загружаю список всех доступных островов...")
+
+        try:
+            locations = await get_data_loader().get_all_locations()
+
+            if not locations:
+                await loading_msg.edit_text(
+                    "😔 К сожалению, не удалось загрузить список островов. Попробуйте позже.",
+                    reply_markup=get_back_to_main_keyboard()
+                )
+                return
+
+            # Сохраняем список локаций в состоянии
+            await state.update_data(all_locations=locations, locations_page=0)
+
+            # Показываем клавиатуру с локациями
+            from keyboards import get_all_locations_keyboard
+
+            # Находим The Philippines для подсчета островов
+            philippines = next((loc for loc in locations if loc.get('parent') == 0), None)
+            if philippines:
+                islands_count = len([l for l in locations if l.get('parent') == philippines['id']])
+            else:
+                islands_count = len([l for l in locations if l.get('parent') and l.get('parent') != 0])
+
+            await loading_msg.edit_text(
+                f"🏝 **Доступные острова Филиппин** ({islands_count} островов)\n\n"
+                "Выберите остров из списка:",
+                reply_markup=get_all_locations_keyboard(locations, page=0),
+                parse_mode="Markdown"
+            )
+
+            await state.set_state(UserStates.HOTELS_SELECT_OTHER_LOCATION)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки локаций: {e}")
+            await loading_msg.edit_text(
+                "😔 Произошла ошибка при загрузке списка островов.",
+                reply_markup=get_back_to_main_keyboard()
+            )
         return
-    
+
     # Сохраняем остров
     await state.update_data(island=island_code)
-    
+
     await callback.message.edit_text(
         HOTELS_SELECT_CRITERIA,
         reply_markup=get_criteria_keyboard()
     )
-    
+
     await state.set_state(UserStates.HOTELS_SELECT_CRITERIA)
+
+
+# ========== Обработчики для "Других островов" ==========
+
+@router.callback_query(UserStates.HOTELS_SELECT_OTHER_LOCATION, F.data.startswith("location:"))
+async def select_other_location(callback: CallbackQuery, state: FSMContext):
+    """Выбор локации из полного списка"""
+    await callback.answer()
+
+    location_code = callback.data.split(":")[1]
+
+    # Сохраняем выбранную локацию
+    await state.update_data(island=location_code)
+
+    await callback.message.edit_text(
+        HOTELS_SELECT_CRITERIA,
+        reply_markup=get_criteria_keyboard()
+    )
+
+    await state.set_state(UserStates.HOTELS_SELECT_CRITERIA)
+
+
+@router.callback_query(UserStates.HOTELS_SELECT_OTHER_LOCATION, F.data.startswith("locations_page:"))
+async def navigate_locations_page(callback: CallbackQuery, state: FSMContext):
+    """Навигация по страницам локаций"""
+    await callback.answer()
+
+    page_data = callback.data.split(":")[1]
+
+    if page_data == "current":
+        return  # Игнорируем клик на текущую страницу
+
+    page = int(page_data)
+
+    # Получаем сохраненные локации
+    data = await state.get_data()
+    locations = data.get('all_locations', [])
+
+    if not locations:
+        await callback.answer("Ошибка: список локаций не найден", show_alert=True)
+        return
+
+    # Обновляем страницу
+    await state.update_data(locations_page=page)
+
+    # Показываем новую страницу
+    from keyboards import get_all_locations_keyboard
+
+    # Находим The Philippines для подсчета островов
+    philippines = next((loc for loc in locations if loc.get('parent') == 0), None)
+    if philippines:
+        islands_count = len([l for l in locations if l.get('parent') == philippines['id']])
+    else:
+        islands_count = len([l for l in locations if l.get('parent') and l.get('parent') != 0])
+
+    await callback.message.edit_text(
+        f"🏝 **Доступные острова Филиппин** ({islands_count} островов)\n\n"
+        "Выберите остров из списка:",
+        reply_markup=get_all_locations_keyboard(locations, page=page),
+        parse_mode="Markdown"
+    )
 
 
 # ========== Выбор критерия ==========

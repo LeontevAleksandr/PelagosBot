@@ -18,6 +18,52 @@ class HotelsLoader:
         self.api = api
         self.cache = get_cache_manager()
 
+    async def get_all_locations(self) -> list:
+        """
+        Получить все доступные локации/острова из Pelagos API
+
+        Returns:
+            list: Список словарей с информацией о локациях
+                [{id, name, code, parent, pics}, ...]
+        """
+        if not self.api:
+            logger.warning("⚠️ API не инициализирован")
+            return []
+
+        # Проверяем кэш
+        cache_key = "locations:all"
+        cached_locations = self.cache.get(cache_key)
+
+        if cached_locations:
+            logger.info(f"✓ Используем кэш локаций ({len(cached_locations)} шт)")
+            return cached_locations
+
+        try:
+            # Получаем все регионы из API
+            regions = await self.api.get_regions()
+
+            # Конвертируем в простой формат
+            locations = []
+            for region in regions:
+                location_dict = {
+                    'id': region.id,
+                    'name': region.name,
+                    'code': region.code,
+                    'parent': region.parent,
+                    'pics': region.pics if hasattr(region, 'pics') else []
+                }
+                locations.append(location_dict)
+
+            # Кэшируем на 24 часа (локации меняются редко)
+            self.cache.set(cache_key, locations, ttl=86400)
+
+            logger.info(f"✅ Загружено {len(locations)} локаций из API")
+            return locations
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки локаций: {e}")
+            return []
+
     async def get_hotels_by_filters(
         self,
         island: str = None,

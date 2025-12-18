@@ -11,6 +11,7 @@ class UserStates(StatesGroup):
     
     # Отели
     HOTELS_SELECT_ISLAND = State()
+    HOTELS_SELECT_OTHER_LOCATION = State()
     HOTELS_SELECT_CRITERIA = State()
     HOTELS_SELECT_STARS = State()
     HOTELS_SELECT_CURRENCY = State()

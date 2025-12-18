@@ -11,6 +11,7 @@ from .common import (
 
 from .hotels import (
     get_islands_keyboard,
+    get_all_locations_keyboard,
     get_criteria_keyboard,
     get_stars_keyboard,
     get_currency_keyboard,
@@ -19,7 +20,7 @@ from .hotels import (
     get_hotel_navigation_keyboard,
     get_hotel_rooms_keyboard,
     get_share_contact_keyboard,
-    get_hotel_card_simple_keyboard, 
+    get_hotel_card_simple_keyboard,
     get_cards_pagination_keyboard,
     get_custom_price_input_keyboard
 )
@@ -51,6 +52,7 @@ __all__ = [
     'get_back_to_main_keyboard',
     # Hotels
     'get_islands_keyboard',
+    'get_all_locations_keyboard',
     'get_criteria_keyboard',
     'get_stars_keyboard',
     'get_currency_keyboard',
