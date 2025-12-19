@@ -85,10 +85,10 @@ async def get_excursion_photo(excursion_id: str):
     В будущем заменить на запрос к БД.
     """
     from utils.data_loader import get_data_loader
-    
-    excursion = get_data_loader().get_excursion_by_id(excursion_id)
+
+    excursion = await get_data_loader().get_excursion_by_id(excursion_id)
     if not excursion:
         return None
-    
+
     photo_path = excursion.get("photo")
     return await media_manager.get_photo(photo_path)

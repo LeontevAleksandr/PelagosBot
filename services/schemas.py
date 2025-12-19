@@ -178,7 +178,7 @@ class RoomPrices:
         )
 
 @dataclass
-class Service:
+class Service: # dont use
     """Модель услуги (экскурсии, трансферы и т.п.)"""
     id: int
     name: str
@@ -216,4 +216,137 @@ class Service:
             tickets_included=data.get('tickets_included'),
             inhttp=data.get('inhttp'),
             pics=data.get('pics', [])
+        )
+
+@dataclass
+class ExcursionEvent:
+    """Модель события экскурсии (конкретная дата проведения)"""
+    id: int
+    service_id: int
+    base_id: int
+    sdt: int  # Start datetime (Unix timestamp)
+    duration: int = 0
+    time_fixed: int = 0
+    price: float = 0
+    status: int = 0
+    cdt: Optional[int] = None
+    dt: Optional[int] = None
+    hue: Optional[int] = None
+    pax: int = 0
+    id_url: Optional[str] = None
+    service: Optional[Service] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Optional['ExcursionEvent']:
+        """Создать объект из словаря"""
+        if not data:
+            return None
+
+        # Парсим вложенный service если есть
+        service_data = data.get('service')
+        service = None
+        if service_data:
+            # Создаем упрощенную версию Service для экскурсий
+            service = Service(
+                id=service_data.get('id'),
+                name=service_data.get('name', ''),
+                base_id=service_data.get('base_id', 1),
+                link=service_data.get('link'),
+                type=service_data.get('type'),
+                subtype=service_data.get('subtype'),
+                russian_guide=service_data.get('russian_guide')
+            )
+            # Добавляем дополнительные поля
+            service.html = service_data.get('html')
+            service.location = service_data.get('location')
+            service.ord = service_data.get('ord', 0)
+            service.pic = service_data.get('pic')
+
+        return cls(
+            id=data.get('id'),
+            service_id=data.get('service_id'),
+            base_id=data.get('base_id', 1),
+            sdt=data.get('sdt'),
+            duration=data.get('duration', 0),
+            time_fixed=data.get('time_fixed', 0),
+            price=data.get('price', 0),
+            status=data.get('status', 0),
+            cdt=data.get('cdt'),
+            dt=data.get('dt'),
+            hue=data.get('hue'),
+            pax=data.get('pax', 0),
+            id_url=data.get('id_url'),
+            service=service
+        )
+
+@dataclass
+class ExcursionDay:
+    """Модель дня в календаре экскурсий"""
+    dt: int  # Unix timestamp начала дня
+    edt: int  # Unix timestamp конца дня
+    day: int
+    mon: int
+    year: str
+    wday: int  # День недели
+    date: str  # Дата в формате DD.MM.YYYY
+    smon: str  # Название месяца
+    time: str  # Время в формате DD.MM.YYYY HH:MM
+    events: List[ExcursionEvent] = field(default_factory=list)
+    fut: int = 0  # Будущая дата
+    other: bool = False  # Относится к другому месяцу
+    eidx: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Optional['ExcursionDay']:
+        """Создать объект из словаря"""
+        if not data:
+            return None
+
+        # Парсим события
+        events = []
+        for event_data in data.get('events', []):
+            event = ExcursionEvent.from_dict(event_data)
+            if event:
+                events.append(event)
+
+        return cls(
+            dt=data.get('dt'),
+            edt=data.get('edt'),
+            day=data.get('day'),
+            mon=data.get('mon'),
+            year=data.get('year', ''),
+            wday=data.get('wday'),
+            date=data.get('date', ''),
+            smon=data.get('smon', ''),
+            time=data.get('time', ''),
+            events=events,
+            fut=data.get('fut', 0),
+            other=data.get('other', False),
+            eidx=data.get('eidx', 0)
+        )
+
+@dataclass
+class ExcursionMonth:
+    """Модель месяца в календаре экскурсий"""
+    name: str
+    year: str
+    days: List[ExcursionDay] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Optional['ExcursionMonth']:
+        """Создать объект из словаря"""
+        if not data:
+            return None
+
+        # Парсим дни
+        days = []
+        for day_data in data.get('days', []):
+            day = ExcursionDay.from_dict(day_data)
+            if day:
+                days.append(day)
+
+        return cls(
+            name=data.get('name', ''),
+            year=data.get('year', ''),
+            days=days
         )

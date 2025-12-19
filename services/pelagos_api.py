@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .api_client import APIClient
-from .schemas import Hotel, HotelRoom, Pagination, Region, RoomPrices, Service
+from .schemas import Hotel, HotelRoom, Pagination, Region, RoomPrices, Service, ExcursionMonth, ExcursionEvent
 
 logger = logging.getLogger(__name__)
 
@@ -287,6 +287,145 @@ class PelagosAPI:
             start += perpage
 
         return all_services
+
+    # === ЭКСКУРСИИ ===
+
+    async def get_group_tours_calendar(
+        self,
+        date: str = None,
+        location: int = 0
+    ) -> List[ExcursionMonth]:
+        """
+        Получить календарь групповых туров
+
+        Args:
+            date: дата в формате DD.MM.YYYY (опционально)
+            location: ID локации (0 = все локации)
+
+        Returns:
+            список месяцев с экскурсиями
+        """
+        endpoint = "group-tours/"
+        if date:
+            endpoint = f"group-tours/{date}/"
+
+        params = {
+            "calendar": 1,
+            "location": location
+        }
+
+        data = await self.client.get(endpoint, params=params)
+
+        if not data or data.get("code") != "OK":
+            return []
+
+        rv = data.get("rv", {})
+        axis = rv.get("axis", [])
+
+        months = []
+        for month_data in axis:
+            month = ExcursionMonth.from_dict(month_data)
+            if month:
+                months.append(month)
+
+        return months
+
+    async def get_excursion_event_details(self, event_id: int) -> Optional[ExcursionEvent]:
+        """
+        Получить детальную информацию об экскурсионном событии
+
+        Args:
+            event_id: ID события
+
+        Returns:
+            объект ExcursionEvent с полными данными или None
+        """
+        endpoint = f"group-tours-event/{event_id}/"
+        params = {"extend": 1}
+
+        data = await self.client.get(endpoint, params=params)
+
+        if not data or data.get("code") != "OK":
+            return None
+
+        row = data.get("row")
+        if not row:
+            return None
+
+        # Создаем ExcursionEvent из service данных
+        # Поскольку это детальный запрос, нам нужно обернуть service в event структуру
+        event_data = {
+            "id": event_id,
+            "service_id": row.get("id"),
+            "base_id": row.get("base_id", 1),
+            "sdt": 0,  # Не указано в детальном ответе
+            "service": row
+        }
+
+        return ExcursionEvent.from_dict(event_data)
+
+    async def get_excursions_by_location_and_date(
+        self,
+        location_code: str = None,
+        date: str = None
+    ) -> List[ExcursionEvent]:
+        """
+        Получить все экскурсии для конкретной локации и даты
+
+        Args:
+            location_code: код локации (например, 'cebu', 'bohol')
+            date: дата в формате YYYY-MM-DD
+
+        Returns:
+            список ExcursionEvent
+        """
+        # Получаем ID локации по коду
+        location_id = 0
+        if location_code:
+            # Маппинг кодов локаций на ID
+            location_map = {
+                "cebu": 9,
+                "bohol": 10,
+                "boracay": 8,
+                "panglao": 10,
+                # Добавьте другие локации по необходимости
+            }
+            location_id = location_map.get(location_code.lower(), 0)
+
+        # Конвертируем дату из YYYY-MM-DD в DD.MM.YYYY если нужно
+        api_date = None
+        if date:
+            from datetime import datetime
+            try:
+                dt = datetime.strptime(date, "%Y-%m-%d")
+                api_date = dt.strftime("%d.%m.%Y")
+            except ValueError:
+                logger.error(f"Неверный формат даты: {date}")
+                return []
+
+        months = await self.get_group_tours_calendar(date=api_date, location=location_id)
+
+        if not months:
+            return []
+
+        # Собираем все события за указанную дату
+        all_events = []
+        for month in months:
+            for day in month.days:
+                # Если дата указана, фильтруем
+                if date:
+                    # Конвертируем day.date из DD.MM.YYYY в YYYY-MM-DD
+                    try:
+                        day_dt = datetime.strptime(day.date, "%d.%m.%Y")
+                        day_date_str = day_dt.strftime("%Y-%m-%d")
+                        if day_date_str != date:
+                            continue
+                    except ValueError:
+                        continue
+
+                all_events.extend(day.events)
+
+        return all_events
 
     async def close(self):
         """Закрыть соединение"""

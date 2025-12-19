@@ -24,8 +24,9 @@ class UserStates(StatesGroup):
     HOTELS_SELECT_ROOM = State()
     HOTELS_INPUT_ROOM_COUNT = State()
     
-    # Экскурсии (будут реализованы позже)
+    # Экскурсии
     EXCURSIONS_SELECT_ISLAND = State()
+    EXCURSIONS_SELECT_OTHER_LOCATION = State()
     EXCURSIONS_SELECT_TYPE = State()
     EXCURSIONS_GROUP_SELECT_DATE = State()
     EXCURSIONS_PRIVATE_INPUT_PEOPLE = State()

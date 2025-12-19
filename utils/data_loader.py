@@ -2,7 +2,8 @@
 import logging
 from typing import Optional
 from services.pelagos_api import PelagosAPI
-from utils.loaders import HotelsLoader, ExcursionsLoader, TransfersLoader, PackagesLoader
+from utils.loaders import HotelsLoader, TransfersLoader, PackagesLoader
+from utils.loaders.excursions_loader import ExcursionsLoader
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +14,12 @@ class DataLoader:
     def __init__(self, api: Optional[PelagosAPI] = None, json_path: str = "data/mock_data.json"):
         """
         Args:
-            api: API для работы с отелями (Pelagos API)
-            json_path: путь к JSON файлу для экскурсий, трансферов, пакетов
+            api: API для работы с отелями и экскурсиями (Pelagos API)
+            json_path: путь к JSON файлу для трансферов, пакетов
         """
         # Инициализируем специализированные загрузчики
         self.hotels_loader = HotelsLoader(api=api)
-        self.excursions_loader = ExcursionsLoader(json_path=json_path)
+        self.excursions_loader = ExcursionsLoader(api=api)  # Теперь использует API
         self.transfers_loader = TransfersLoader(json_path=json_path)
         self.packages_loader = PackagesLoader(json_path=json_path)
 
@@ -72,26 +73,26 @@ class DataLoader:
 
     # ========== ЭКСКУРСИИ (делегирование в ExcursionsLoader) ==========
 
-    def get_excursions_by_filters(
+    async def get_excursions_by_filters(
         self,
         island: str = None,
         excursion_type: str = None,
         date: str = None
     ) -> list:
         """Получить экскурсии по фильтрам"""
-        return self.excursions_loader.get_excursions_by_filters(
+        return await self.excursions_loader.get_excursions_by_filters(
             island=island,
             excursion_type=excursion_type,
             date=date
         )
 
-    def get_excursion_by_id(self, excursion_id: str) -> dict:
+    async def get_excursion_by_id(self, excursion_id: str) -> dict:
         """Получить экскурсию по ID"""
-        return self.excursions_loader.get_excursion_by_id(excursion_id)
+        return await self.excursions_loader.get_excursion_by_id(excursion_id)
 
-    def get_companions_by_month(self, island: str, year: int, month: int) -> list:
+    async def get_companions_by_month(self, island: str, year: int, month: int) -> list:
         """Получить экскурсии с поиском попутчиков за месяц"""
-        return self.excursions_loader.get_companions_by_month(island, year, month)
+        return await self.excursions_loader.get_companions_by_month(island, year, month)
 
     # ========== ПАКЕТНЫЕ ТУРЫ (делегирование в PackagesLoader) ==========
 
