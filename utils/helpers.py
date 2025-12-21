@@ -1,8 +1,11 @@
 """Вспомогательные функции"""
 import re
+import logging
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 def validate_price_range(text: str, currency: str = "usd") -> tuple[bool, int, int]:
@@ -432,3 +435,48 @@ async def delete_loading_message(loading_msg: Message):
         await loading_msg.delete()
     except Exception:
         pass  # Игнорируем ошибки удаления
+
+
+async def send_excursion_card_with_photo(
+    message: Message,
+    card_text: str,
+    keyboard: InlineKeyboardMarkup,
+    excursion_id: str,
+    parse_mode: str = "Markdown"
+):
+    """
+    Универсальная функция для отправки карточки экскурсии с фото
+
+    Args:
+        message: Message объект для отправки
+        card_text: Текст карточки
+        keyboard: Клавиатура
+        excursion_id: ID экскурсии для получения фото
+        parse_mode: Режим парсинга (по умолчанию Markdown)
+    """
+    from utils.media_manager import get_excursion_photo
+
+    # Получаем фото
+    photo = await get_excursion_photo(excursion_id)
+
+    if photo:
+        try:
+            await message.answer_photo(
+                photo=photo,
+                caption=card_text,
+                reply_markup=keyboard,
+                parse_mode=parse_mode
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось отправить фото для экскурсии {excursion_id}: {e}")
+            await message.answer(
+                card_text,
+                reply_markup=keyboard,
+                parse_mode=parse_mode
+            )
+    else:
+        await message.answer(
+            card_text,
+            reply_markup=keyboard,
+            parse_mode=parse_mode
+        )

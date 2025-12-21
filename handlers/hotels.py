@@ -24,7 +24,8 @@ from keyboards import (
     get_hotel_card_simple_keyboard,
     get_cards_pagination_keyboard,
     get_back_to_main_keyboard,
-    get_custom_price_input_keyboard
+    get_custom_price_input_keyboard,
+    get_all_locations_keyboard
 )
 from utils.texts import (
     get_hotels_intro_text,
@@ -45,7 +46,9 @@ from utils.texts import (
     get_hotel_list_item_text,
     get_hotel_rooms_text
 )
+
 from utils.preloader import get_preloader
+
 from utils.helpers import (
     validate_price_range,
     get_calendar_keyboard,
@@ -55,7 +58,8 @@ from utils.helpers import (
     convert_price,
     validate_phone_number,
     show_loading_message,
-    delete_loading_message
+    delete_loading_message,
+    get_exchange_rates
 )
 from utils.data_loader import get_data_loader
 from utils.contact_handler import contact_handler
@@ -126,9 +130,6 @@ async def select_island(callback: CallbackQuery, state: FSMContext):
 
             # Сохраняем список локаций в состоянии
             await state.update_data(all_locations=locations, locations_page=0)
-
-            # Показываем клавиатуру с локациями
-            from keyboards import get_all_locations_keyboard
 
             # Находим The Philippines для подсчета островов
             philippines = next((loc for loc in locations if loc.get('parent') == 0), None)
@@ -207,9 +208,6 @@ async def navigate_locations_page(callback: CallbackQuery, state: FSMContext):
 
     # Обновляем страницу
     await state.update_data(locations_page=page)
-
-    # Показываем новую страницу
-    from keyboards import get_all_locations_keyboard
 
     # Находим The Philippines для подсчета островов
     philippines = next((loc for loc in locations if loc.get('parent') == 0), None)
@@ -347,7 +345,6 @@ async def process_custom_price_range(message: Message, state: FSMContext):
 
     if not valid:
         # Получаем лимиты для сообщения об ошибке
-        from utils.helpers import get_exchange_rates, get_currency_symbol
         rates = get_exchange_rates()
         symbol = get_currency_symbol(currency)
         min_limit = int(5 * rates[currency])
@@ -733,7 +730,6 @@ async def send_hotels_cards_page(message: Message, state: FSMContext, page: int)
         return get_hotel_card_simple_keyboard(hotel["id"])
 
     # Отправляем карточки отелей
-    import asyncio
     for hotel in hotels:
         card_text = format_card(hotel)
         keyboard = get_keyboard(hotel)

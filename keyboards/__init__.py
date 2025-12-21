@@ -33,7 +33,10 @@ from .excursions import (
     get_companions_list_keyboard,
     get_companions_excursion_keyboard,
     get_companions_create_agree_keyboard,
-    get_companions_select_excursion_keyboard
+    get_companions_select_excursion_keyboard,
+    get_group_excursion_full_keyboard,
+    get_action_choice_keyboard,
+    get_group_month_excursion_detail_keyboard
 )
 
 from .transfers import (
@@ -73,6 +76,9 @@ __all__ = [
     'get_companions_excursion_keyboard',
     'get_companions_create_agree_keyboard',
     'get_companions_select_excursion_keyboard',
+    'get_group_excursion_full_keyboard',
+    'get_action_choice_keyboard',
+    'get_group_month_excursion_detail_keyboard',
     # Transfers
     'get_transfer_navigation_keyboard',
     'get_transfer_card_simple_keyboard',

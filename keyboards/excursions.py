@@ -183,3 +183,92 @@ def get_companions_select_excursion_keyboard(excursions: list) -> InlineKeyboard
     buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_group_excursion_full_keyboard(
+    excursion_id: str,
+    index: int,
+    has_prev: bool,
+    has_next: bool,
+    current_date: str,
+    expanded: bool = False
+) -> InlineKeyboardMarkup:
+    """
+    Полная клавиатура для групповой экскурсии с навигацией и показом месяца
+
+    Args:
+        excursion_id: ID экскурсии
+        index: индекс текущей экскурсии
+        has_prev: есть ли предыдущая экскурсия
+        has_next: есть ли следующая экскурсия
+        current_date: текущая дата в формате YYYY-MM-DD
+        expanded: развёрнута ли карточка
+    """
+    from datetime import datetime
+
+    # Названия месяцев в родительном падеже
+    MONTH_NAMES_GENITIVE = [
+        "январь", "февраль", "март", "апрель", "май", "июнь",
+        "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"
+    ]
+
+    buttons = []
+
+    # Кнопка присоединиться
+    buttons.append([InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"exc_join:{excursion_id}")])
+
+    # Кнопка развернуть/свернуть
+    if expanded:
+        buttons.append([InlineKeyboardButton(text="Свернуть ▲", callback_data=f"exc_group_collapse:{index}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_group_expand:{index}")])
+
+    # Пагинация между экскурсиями на одну дату
+    if has_prev or has_next:
+        nav_buttons = []
+        if has_prev:
+            nav_buttons.append(InlineKeyboardButton(text="⬅️ Предыдущая", callback_data=f"exc_group_nav:prev:{index}"))
+        if has_next:
+            nav_buttons.append(InlineKeyboardButton(text="Следующая ➡️", callback_data=f"exc_group_nav:next:{index}"))
+        buttons.append(nav_buttons)
+
+    # Кнопка показать все страницей
+    buttons.append([InlineKeyboardButton(text="📋 Показать все страницей", callback_data="exc_group:show_all")])
+
+    # Кнопка показать экскурсии на весь месяц
+    if current_date:
+        dt = datetime.strptime(current_date, "%Y-%m-%d")
+        month_name = MONTH_NAMES_GENITIVE[dt.month - 1]
+        buttons.append([InlineKeyboardButton(
+            text=f"📅 Экскурсии на {month_name}",
+            callback_data=f"exc_group_month:{dt.year}-{dt.month:02d}"
+        )])
+
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_action_choice_keyboard(excursion_type: str) -> InlineKeyboardMarkup:
+    """
+    Универсальная клавиатура выбора действия (добавить в заказ / забронировать)
+
+    Args:
+        excursion_type: тип экскурсии (group, private, companion, create)
+    """
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data=f"exc_{excursion_type}:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data=f"exc_{excursion_type}:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_group_month_excursion_detail_keyboard(excursion_id: str) -> InlineKeyboardMarkup:
+    """Клавиатура для просмотра одной экскурсии из месячного списка"""
+    buttons = [
+        [InlineKeyboardButton(text="✅ Присоединиться", callback_data=f"exc_join:{excursion_id}")],
+        [InlineKeyboardButton(text="🔙 Назад к списку", callback_data="exc_group_month:back")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

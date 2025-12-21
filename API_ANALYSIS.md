@@ -98,14 +98,17 @@ services = await api.search_services('экскурсия', limit=10)
 
 ### 2. Эндпоинты API
 ```
-GET /export-locations/                     - Список регионов
-GET /export-hotels/{location_code}/        - Отели региона
-GET /export-hotels-rooms/{hotel_id}/       - Номера отеля
-GET /export-hotels-rooms-prices/{room_id}/ - Цены на номер
-GET /export-services/                       - Услуги
-GET /export-hotel/{hotel_id}/              - Детальная информация об отеле
-GET /export-services-xml/?cache=1          - XML с услугами
-GET /export-rooms-xml/?cache=1             - XML с номерами
+GET /export-locations/                          - Список регионов
+GET /export-hotels/{location_code}/             - Отели региона
+GET /export-hotels-rooms/{hotel_id}/            - Номера отеля
+GET /export-hotels-rooms-prices/{room_id}/      - Цены на номер
+GET /export-services/                            - Услуги
+GET /export-hotel/{hotel_id}/                   - Детальная информация об отеле
+GET /export-services-xml/?cache=1               - XML с услугами
+GET /export-rooms-xml/?cache=1                  - XML с номерами
+GET /group-tours/{date}/?list=1&location={id}   - Индивидуальные экскурсии
+GET /group-tours/{date}/flex/?calendar=1&location={id} - Поиск попутчиков (календарь)
+GET /group-tours-event/{event_id}/?extend=1     - Детали события попутчика
 ```
 
 ### 3. Параметры пагинации
@@ -198,3 +201,89 @@ python te_api.py
 3. Для больших объемов данных используйте методы `get_all_*` с автоматической пагинацией
 
 4. Обрабатывайте случаи, когда API возвращает пустые списки или None
+
+## Поиск попутчиков (Companions)
+
+### Структура API для поиска попутчиков
+
+Поиск попутчиков работает через flex API, который возвращает индивидуальные экскурсии с информацией о людях, ищущих попутчиков.
+
+### Получение календаря попутчиков
+```python
+# Получить календарь с экскурсиями для поиска попутчиков
+days = await api.get_companions_calendar(location_id=9, date="21.12.2025")
+
+# Структура ответа:
+# days = [
+#   {
+#     "dt": 1767369600,
+#     "date": "03.01.2026",
+#     "mon": 1,
+#     "year": "2026",
+#     "events": [
+#       {
+#         "id": 285,  # ID события (event_id)
+#         "service_id": 18964,  # ID услуги
+#         "pax": 2,  # Количество человек ищущих попутчиков
+#         "service": {
+#           "id": 18964,
+#           "name": "Название экскурсии",
+#           "location": 9,
+#           "russian_guide": 10,
+#           "pic": {...}
+#         }
+#       }
+#     ]
+#   }
+# ]
+```
+
+### Получение деталей события попутчика
+```python
+# Получить детальную информацию о событии
+event_details = await api.get_companion_event_details(event_id=285)
+
+# Структура ответа включает:
+# - Полную информацию о сервисе (service)
+# - Список попутчиков (slst) с контактами
+# - Цены для разного количества людей (rlst)
+# - Фотографии (pics)
+```
+
+### Структура цен (rlst)
+
+```python
+# rlst содержит информацию о ценах для разного количества человек
+"rlst": [
+  {
+    "clst": [
+      {"grp": 1, "price": 365},  # Цена за человека для 1 чел.
+      {"grp": 2, "price": 220},  # Цена за человека для 2 чел.
+      {"grp": 3, "price": 195},  # Цена за человека для 3 чел.
+      {"grp": 4, "price": 180},  # и т.д.
+    ]
+  }
+]
+```
+
+### Структура списка попутчиков (slst)
+
+```python
+# slst содержит список людей, ищущих попутчиков
+"slst": [
+  {
+    "id": 157,
+    "title": "Анна",
+    "pax": 2,  # Количество человек в группе
+    "phone": "+7 950 209-02-91",
+    "tg": ""
+  }
+]
+```
+
+### Важные отличия от групповых экскурсий
+
+1. **ID**: Для попутчиков используется `event_id`, а не `service_id`
+2. **Цены**: Цены зависят от количества человек и хранятся в `rlst.clst`
+3. **Тип**: Это индивидуальные экскурсии, но с поиском попутчиков
+4. **API endpoint**: Используется `/group-tours/{date}/flex/` с параметром `calendar=1`

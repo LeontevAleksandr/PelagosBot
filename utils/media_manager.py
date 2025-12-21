@@ -92,3 +92,18 @@ async def get_excursion_photo(excursion_id: str):
 
     photo_path = excursion.get("photo")
     return await media_manager.get_photo(photo_path)
+
+
+async def get_transfer_photo(transfer_id: str):
+    """
+    Получить фото трансфера.
+    В будущем заменить на запрос к БД.
+    """
+    from utils.data_loader import get_data_loader
+
+    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
+    if not transfer:
+        return None
+
+    photo_path = transfer.get("photo")
+    return await media_manager.get_photo(photo_path)

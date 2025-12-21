@@ -14,13 +14,13 @@ class DataLoader:
     def __init__(self, api: Optional[PelagosAPI] = None, json_path: str = "data/mock_data.json"):
         """
         Args:
-            api: API для работы с отелями и экскурсиями (Pelagos API)
-            json_path: путь к JSON файлу для трансферов, пакетов
+            api: API для работы с отелями, экскурсиями и трансферами (Pelagos API)
+            json_path: путь к JSON файлу для пакетов
         """
         # Инициализируем специализированные загрузчики
         self.hotels_loader = HotelsLoader(api=api)
-        self.excursions_loader = ExcursionsLoader(api=api)  # Теперь использует API
-        self.transfers_loader = TransfersLoader(json_path=json_path)
+        self.excursions_loader = ExcursionsLoader(api=api)
+        self.transfers_loader = TransfersLoader(api=api)  # Теперь использует API
         self.packages_loader = PackagesLoader(json_path=json_path)
 
     # ========== ОТЕЛИ (делегирование в HotelsLoader) ==========
@@ -106,13 +106,13 @@ class DataLoader:
 
     # ========== ТРАНСФЕРЫ (делегирование в TransfersLoader) ==========
 
-    def get_transfers_by_island(self, island: str = None) -> list:
+    async def get_transfers_by_island(self, island: str = None) -> list:
         """Получить трансферы по острову"""
-        return self.transfers_loader.get_transfers_by_island(island)
+        return await self.transfers_loader.get_transfers_by_island(island)
 
-    def get_transfer_by_id(self, transfer_id: str) -> dict:
+    async def get_transfer_by_id(self, transfer_id: str) -> dict:
         """Получить трансфер по ID"""
-        return self.transfers_loader.get_transfer_by_id(transfer_id)
+        return await self.transfers_loader.get_transfer_by_id(transfer_id)
 
 
 # Глобальный экземпляр (будет инициализирован с API в bot.py)

@@ -21,6 +21,7 @@ from utils.data_loader import get_data_loader
 from utils.contact_handler import contact_handler
 from utils.order_manager import order_manager
 from utils.helpers import send_items_page
+from utils.media_manager import get_transfer_photo
 
 router = Router()
 
@@ -52,11 +53,14 @@ async def select_transfer_island(callback: CallbackQuery, state: FSMContext):
 
     island = callback.data.split(":")[1]
 
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.edit_text("⏳ Загружаю трансферы...")
+
     # Получаем трансферы для этого острова
-    transfers = get_data_loader().get_transfers_by_island(island)
+    transfers = await get_data_loader().get_transfers_by_island(island)
 
     if not transfers:
-        await callback.message.edit_text(
+        await loading_msg.edit_text(
             "😔 К сожалению, для выбранного направления трансферы пока недоступны.\n\nПопробуйте другой остров или свяжитесь с нашими менеджерами.",
             reply_markup=get_back_to_main_keyboard()
         )
@@ -70,7 +74,7 @@ async def select_transfer_island(callback: CallbackQuery, state: FSMContext):
     )
 
     # Показываем первый трансфер с запросом количества людей
-    await callback.message.edit_text(
+    await loading_msg.edit_text(
         "Введите количество человек, включая детей после 2х лет:",
         reply_markup=get_back_to_main_keyboard()
     )
@@ -135,10 +139,22 @@ async def show_transfer_card(message: Message, state: FSMContext, index: int):
         transfer_id=transfer['id']
     )
 
-    await message.answer(
-        card_text,
-        reply_markup=keyboard
-    )
+    # Пытаемся получить фото
+    photo = await get_transfer_photo(transfer['id'])
+
+    if photo:
+        await message.answer_photo(
+            photo=photo,
+            caption=card_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    else:
+        await message.answer(
+            card_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
 
 
 async def send_transfers_cards_page(message: Message, state: FSMContext, page: int):
@@ -158,9 +174,9 @@ async def send_transfers_cards_page(message: Message, state: FSMContext, page: i
     def get_keyboard(transfer):
         return get_transfer_card_simple_keyboard(transfer["id"])
 
-    # Функция получения фото (для трансферов фото нет)
+    # Функция получения фото
     async def get_photo(transfer):
-        return None
+        return await get_transfer_photo(transfer["id"])
 
     # Используем универсальную функцию
     await send_items_page(
@@ -173,7 +189,7 @@ async def send_transfers_cards_page(message: Message, state: FSMContext, page: i
         get_photo_func=get_photo,
         callback_prefix="transfer_cards_page",
         page_title="Страница",
-        parse_mode=None,
+        parse_mode="HTML",
         page_1_based=True
     )
 
@@ -211,7 +227,7 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     transfer_id = callback.data.split(":")[1]
-    transfer = get_data_loader().get_transfer_by_id(transfer_id)
+    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
         return
@@ -235,7 +251,7 @@ async def add_transfer_to_order(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     transfer_id = data.get("selected_transfer_id")
     people_count = data.get("people_count", 1)
-    transfer = get_data_loader().get_transfer_by_id(transfer_id)
+    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
         return
@@ -254,7 +270,7 @@ async def book_transfer_now(callback: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
     transfer_id = data.get("selected_transfer_id")
-    transfer = get_data_loader().get_transfer_by_id(transfer_id)
+    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
         return

@@ -32,7 +32,18 @@ class OrderManager:
         """Добавить экскурсию в заказ"""
         order = state_data.get("order", [])
 
-        total_price = excursion["price_usd"] * people_count
+        # Для индивидуальных экскурсий используем price_list
+        price_list = excursion.get('price_list', {})
+
+        if price_list and people_count in price_list:
+            # Цена за человека для указанного количества людей
+            price_per_person = price_list[people_count]
+            # Общая стоимость = цена_за_человека × количество
+            total_price = price_per_person * people_count
+        else:
+            # Для групповых экскурсий или если нет price_list
+            total_price = excursion.get("price_usd", 0) * people_count
+
         details = f"{people_count} чел." if people_count > 1 else ""
 
         order.append({

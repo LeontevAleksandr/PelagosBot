@@ -5,6 +5,7 @@
 Использование:
     python clear_cache.py              # Очистить весь кэш
     python clear_cache.py --pattern room:price:*  # Очистить только кэш цен
+    python clear_cache.py --pattern transfers:*   # Очистить только кэш трансферов
     python clear_cache.py --stats      # Показать статистику кэша
 """
 

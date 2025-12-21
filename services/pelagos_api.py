@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .api_client import APIClient
-from .schemas import Hotel, HotelRoom, Pagination, Region, RoomPrices, Service, ExcursionMonth, ExcursionEvent
+from .schemas import Hotel, HotelRoom, Pagination, Region, RoomPrices, Service, ExcursionMonth, ExcursionEvent, Transfer
 
 logger = logging.getLogger(__name__)
 
@@ -354,11 +354,19 @@ class PelagosAPI:
 
         # Создаем ExcursionEvent из service данных
         # Поскольку это детальный запрос, нам нужно обернуть service в event структуру
+
+        # Пробуем получить дату из rlst (список расписаний)
+        sdt = 0
+        rlst = row.get("rlst", [])
+        if rlst and len(rlst) > 0:
+            # Берем первое ближайшее расписание
+            sdt = rlst[0].get("sdt", 0)
+
         event_data = {
             "id": event_id,
             "service_id": row.get("id"),
             "base_id": row.get("base_id", 1),
-            "sdt": 0,  # Не указано в детальном ответе
+            "sdt": sdt,  # Получаем из rlst если есть
             "service": row
         }
 
@@ -426,6 +434,206 @@ class PelagosAPI:
                 all_events.extend(day.events)
 
         return all_events
+
+    async def get_private_excursions(
+        self,
+        location_id: int = 0,
+        date: str = None
+    ) -> List[dict]:
+        """
+        Получить индивидуальные экскурсии через list=1
+
+        Args:
+            location_id: ID локации (0 = все локации)
+            date: дата в формате DD.MM.YYYY (опционально)
+
+        Returns:
+            список словарей с индивидуальными экскурсиями
+        """
+        endpoint = "group-tours/"
+        if date:
+            endpoint = f"group-tours/{date}/"
+
+        params = {
+            "list": 1,
+            "location": location_id
+        }
+
+        logger.info(f"🌐 API Request: {endpoint} with params: {params}")
+        data = await self.client.get(endpoint, params=params)
+        logger.info(f"📥 API Response code: {data.get('code') if data else 'None'}, items: {len(data.get('lst', [])) if data else 0}")
+
+        if not data or data.get("code") != "OK":
+            return []
+
+        lst = data.get("lst", [])
+
+        # Фильтруем только индивидуальные экскурсии
+        # group_ex == 0 или отсутствует (None) = индивидуальная
+        # group_ex > 0 = групповая
+        private_excursions = []
+        for item in lst:
+            group_ex = item.get("group_ex")
+            # Если group_ex отсутствует (None) или равен 0 - это индивидуальная экскурсия
+            if group_ex is None or group_ex == 0:
+                private_excursions.append(item)
+
+        return private_excursions
+
+    async def get_companions_calendar(
+        self,
+        location_id: int = 0,
+        date: str = None
+    ) -> List[dict]:
+        """
+        Получить календарь с экскурсиями для поиска попутчиков (flex API)
+
+        Args:
+            location_id: ID локации (0 = все локации)
+            date: начальная дата в формате DD.MM.YYYY (опционально)
+
+        Returns:
+            список дней с событиями (events)
+        """
+        # ВАЖНО: для поиска попутчиков нужен /flex/ в пути!
+        endpoint = "group-tours/flex/"
+        if date:
+            endpoint = f"group-tours/{date}/flex/"
+
+        params = {
+            "calendar": 1,
+            "location": location_id
+        }
+
+        # Формируем полный URL для логирования
+        full_url = f"https://ru.pelagos.ru/{endpoint}?calendar={params['calendar']}&location={params['location']}"
+        logger.info(f"🌐 Companions API Request: {full_url}")
+        logger.info(f"📋 Params: {params}")
+
+        data = await self.client.get(endpoint, params=params)
+        logger.info(f"📥 Companions API Response code: {data.get('code') if data else 'None'}")
+
+        if not data or data.get("code") != "OK":
+            return []
+
+        # ИСПРАВЛЕНО: Правильная структура ответа rv.axis[0].days
+        rv = data.get("rv", {})
+        axis = rv.get("axis", [])
+
+        if not axis:
+            logger.warning("⚠️ Нет данных в rv.axis")
+            return []
+
+        # Берем первый месяц из axis и возвращаем его дни
+        first_month = axis[0]
+        days = first_month.get("days", [])
+
+        # Подсчитываем общее количество событий для отладки
+        total_events = sum(len(day.get('events', [])) for day in days)
+        logger.info(f"✅ Получено {len(days)} дней из календаря попутчиков")
+        logger.info(f"📊 Всего событий в календаре: {total_events}")
+
+        return days
+
+    async def get_companion_event_details(self, event_id: int) -> Optional[dict]:
+        """
+        Получить детальную информацию о событии поиска попутчиков
+
+        Args:
+            event_id: ID события
+
+        Returns:
+            словарь с данными события или None
+        """
+        endpoint = f"group-tours-event/{event_id}/"
+        params = {"extend": 1}
+
+        logger.info(f"🌐 Event Details API Request: {endpoint}")
+        data = await self.client.get(endpoint, params=params)
+
+        if not data or data.get("code") != "OK":
+            return None
+
+        return data.get("row")
+
+    # === ТРАНСФЕРЫ ===
+
+    async def get_transfers(
+        self,
+        location_id: int = None,
+        perpage: int = 200,
+        start: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Получить трансферы
+
+        Args:
+            location_id: ID локации для фильтрации (опционально)
+            perpage: количество на странице
+            start: с какого номера начинать
+
+        Returns:
+            dict с ключами: transfers, pagination
+        """
+        params = {
+            "type": 1200,  # Тип трансфера (subtype из API)
+            "perpage": perpage,
+            "start": start
+        }
+
+        if location_id:
+            params["location"] = location_id
+
+        data = await self.client.get("export-services/", params=params)
+
+        if not data or data.get("code") != "OK":
+            return {"transfers": [], "pagination": None}
+
+        transfers = []
+        for transfer_data in data.get("services", []):
+            transfer = Transfer.from_dict(transfer_data)
+            if transfer:
+                transfers.append(transfer)
+
+        pagination_data = data.get("pages")
+        pagination = Pagination.from_dict(pagination_data) if pagination_data else None
+
+        return {"transfers": transfers, "pagination": pagination, "raw_data": data}
+
+    async def get_all_transfers(
+        self,
+        location_id: int = None
+    ) -> List[Transfer]:
+        """
+        Получить ВСЕ трансферы (автоматическая пагинация)
+
+        Args:
+            location_id: ID локации для фильтрации (опционально)
+
+        Returns:
+            список Transfer
+        """
+        all_transfers = []
+        perpage = 200
+        start = 0
+
+        while True:
+            result = await self.get_transfers(location_id=location_id, perpage=perpage, start=start)
+            transfers = result["transfers"]
+
+            if not transfers:
+                break
+
+            all_transfers.extend(transfers)
+
+            # Проверяем, есть ли еще трансферы
+            pagination = result["pagination"]
+            if pagination and (start + perpage >= pagination.total):
+                break
+
+            start += perpage
+
+        return all_transfers
 
     async def close(self):
         """Закрыть соединение"""

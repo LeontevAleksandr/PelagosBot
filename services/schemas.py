@@ -194,6 +194,9 @@ class Service: # dont use
     tickets_included: Optional[int] = None
     inhttp: Optional[str] = None
     pics: List[str] = field(default_factory=list)
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    current: Optional[dict] = None  # Объект с текущей ценой
 
     @classmethod
     def from_dict(cls, data: dict) -> Optional['Service']:
@@ -215,7 +218,10 @@ class Service: # dont use
             private_transport=data.get('private_transport'),
             tickets_included=data.get('tickets_included'),
             inhttp=data.get('inhttp'),
-            pics=data.get('pics', [])
+            pics=data.get('pics', []),
+            min_price=data.get('min_price'),
+            max_price=data.get('max_price'),
+            current=data.get('current')
         )
 
 @dataclass
@@ -254,7 +260,10 @@ class ExcursionEvent:
                 link=service_data.get('link'),
                 type=service_data.get('type'),
                 subtype=service_data.get('subtype'),
-                russian_guide=service_data.get('russian_guide')
+                russian_guide=service_data.get('russian_guide'),
+                min_price=service_data.get('min_price'),
+                max_price=service_data.get('max_price'),
+                current=service_data.get('current')
             )
             # Добавляем дополнительные поля
             service.html = service_data.get('html')
@@ -349,4 +358,51 @@ class ExcursionMonth:
             name=data.get('name', ''),
             year=data.get('year', ''),
             days=days
+        )
+
+@dataclass
+class Transfer:
+    """Модель трансфера"""
+    id: int
+    name: str
+    base_id: int = 1
+    link: Optional[str] = None
+    type: Optional[int] = None
+    subtype: Optional[int] = None
+    location: Optional[int] = None
+    photo_context_id: Optional[int] = None
+    russian_guide: Optional[int] = None
+    private_transport: Optional[int] = None
+    group_ex: Optional[int] = None
+    inhttp: Optional[str] = None
+    pics: List[Any] = field(default_factory=list)
+    cdt: Optional[int] = None
+    dt: Optional[int] = None
+    ord: Optional[int] = None
+    score: Optional[int] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Optional['Transfer']:
+        """Создать объект из словаря"""
+        if not data:
+            return None
+
+        return cls(
+            id=data.get('id'),
+            name=data.get('name', ''),
+            base_id=data.get('base_id', 1),
+            link=data.get('link'),
+            type=data.get('type'),
+            subtype=data.get('subtype'),
+            location=data.get('location'),
+            photo_context_id=data.get('photo_context_id'),
+            russian_guide=data.get('russian_guide'),
+            private_transport=data.get('private_transport'),
+            group_ex=data.get('group_ex'),
+            inhttp=data.get('inhttp'),
+            pics=data.get('pics', []),
+            cdt=data.get('cdt'),
+            dt=data.get('dt'),
+            ord=data.get('ord'),
+            score=data.get('score')
         )
