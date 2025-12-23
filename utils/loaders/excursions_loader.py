@@ -284,8 +284,23 @@ class ExcursionsLoader:
             excursions = []
             for event in events:
                 exc_dict = self._event_to_dict(event, excursion_type or "group")
-                if exc_dict and (not island or exc_dict.get('island') == island.lower()):
+
+                # ОТЛАДКА: логируем каждое событие
+                if exc_dict:
+                    event_location = getattr(event.service, 'location', None) if event.service else None
+                    logger.info(f"🔍 Событие: id={exc_dict.get('id')}, name={exc_dict.get('name')[:30]}, "
+                               f"event.service.location={event_location}, "
+                               f"exc_dict.island={exc_dict.get('island')}, "
+                               f"filter_island={island}, "
+                               f"match={exc_dict.get('island') == island.lower() if island else 'no_filter'}")
+
+                # ИСПРАВЛЕНИЕ: Не фильтруем по острову для групповых экскурсий,
+                # так как API уже вернул события для нужной локации (параметр location в запросе).
+                # Фильтрация по острову в exc_dict может не совпадать, потому что
+                # service.location указывает на базовую локацию сервиса, а не на локацию события.
+                if exc_dict:
                     excursions.append(exc_dict)
+                    logger.info(f"✅ Добавлено событие: {exc_dict.get('name')[:30]}")
 
             # Кэшируем
             self.cache.set(cache_key, excursions, ttl=self.CACHE_TTL_GROUP)
@@ -524,7 +539,6 @@ class ExcursionsLoader:
             total_processed = 0
             filtered_by_group_ex = 0
             filtered_by_subtype = 0
-            filtered_by_island = 0
 
             for day_data in days:
                 # Фильтруем по месяцу/году
@@ -565,17 +579,16 @@ class ExcursionsLoader:
                         continue
 
                     exc_dict = self._companion_event_to_dict(event_data, day_data)
+                    # ИСПРАВЛЕНИЕ: Не фильтруем по острову, так как API уже вернул события
+                    # для нужной локации (параметр location в запросе).
                     if exc_dict:
-                        if exc_dict.get('island') == island.lower():
-                            excursions.append(exc_dict)
-                        else:
-                            filtered_by_island += 1
+                        excursions.append(exc_dict)
+                        logger.debug(f"✅ Добавлено для попутчиков: {service.get('name')}")
 
             logger.info(f"📊 Статистика обработки попутчиков:")
             logger.info(f"  • Всего событий обработано: {total_processed}")
             logger.info(f"  • Отфильтровано по group_ex: {filtered_by_group_ex}")
             logger.info(f"  • Отфильтровано по subtype: {filtered_by_subtype}")
-            logger.info(f"  • Отфильтровано по острову: {filtered_by_island}")
             logger.info(f"  ✅ Найдено экскурсий для '{island}': {len(excursions)}")
 
             # Кэшируем

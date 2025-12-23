@@ -544,8 +544,27 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
     data = await state.get_data()
     island = data.get("island")
 
-    # Получаем экскурсии за месяц
-    excursions = await get_data_loader().get_companions_by_month(island, year, month)
+    # ИСПРАВЛЕНИЕ: Для групповых экскурсий за месяц нужно получить все события
+    # через обычный календарный API, а не через get_companions_by_month,
+    # который фильтрует только индивидуальные (group_ex == 0).
+    # Получаем все групповые экскурсии без фильтрации по дате
+    all_excursions = await get_data_loader().get_excursions_by_filters(
+        island=island,
+        excursion_type="group",
+        date=None  # Без даты - получаем весь календарь
+    )
+
+    # Фильтруем только экскурсии за нужный месяц/год
+    excursions = []
+    for exc in all_excursions:
+        exc_date = exc.get("date")  # "YYYY-MM-DD"
+        if exc_date:
+            try:
+                exc_dt = datetime.strptime(exc_date, "%Y-%m-%d")
+                if exc_dt.year == year and exc_dt.month == month:
+                    excursions.append(exc)
+            except:
+                pass
 
     if not excursions:
         await callback.answer(f"На {MONTH_NAMES_GENITIVE[month-1]} экскурсий не найдено", show_alert=True)
