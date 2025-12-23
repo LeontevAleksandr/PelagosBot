@@ -91,9 +91,11 @@ async def checkout_order(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Корзина пуста", show_alert=True)
         return
 
-    await callback.message.edit_text(
-        "Для оформления заказа поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
-        reply_markup=get_share_contact_keyboard()
+    # Используем новую функцию для проверки сохраненного номера
+    await contact_handler.request_phone(
+        callback.message,
+        state,
+        "Для оформления заказа поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения."
     )
 
     await state.set_state(UserStates.SHARE_CONTACT)

@@ -318,9 +318,11 @@ async def book_package_now(callback: CallbackQuery, state: FSMContext):
     if not package:
         return
 
-    await callback.message.edit_text(
-        "Для бронирования пакетного тура поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
-        reply_markup=get_share_contact_keyboard()
+    # Используем новую функцию для проверки сохраненного номера
+    await contact_handler.request_phone(
+        callback.message,
+        state,
+        "Для бронирования пакетного тура поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения."
     )
 
     await state.set_state(UserStates.SHARE_CONTACT)

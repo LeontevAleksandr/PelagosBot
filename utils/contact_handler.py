@@ -1,5 +1,5 @@
 """Универсальный обработчик запроса контактов"""
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 
 from keyboards import get_back_to_main_keyboard
@@ -10,6 +10,50 @@ from states.user_states import UserStates
 
 class ContactHandler:
     """Класс для обработки запроса контактов"""
+
+    @staticmethod
+    def get_use_saved_phone_keyboard(phone: str) -> InlineKeyboardMarkup:
+        """Клавиатура для использования сохраненного номера"""
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"✅ Использовать {phone}", callback_data="phone:use_saved")],
+            [InlineKeyboardButton(text="✏️ Ввести другой номер", callback_data="phone:enter_new")],
+            [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+        ])
+        return keyboard
+
+    @staticmethod
+    async def request_phone(message: Message, state: FSMContext, contact_text: str = None) -> bool:
+        """
+        Запрос номера телефона с проверкой сохраненного
+
+        Args:
+            message: Сообщение от пользователя
+            state: Состояние FSM
+            contact_text: Текст запроса контакта (если None, используется стандартный)
+
+        Returns:
+            bool: True если номер уже сохранен, False если нужно запросить новый
+        """
+        data = await state.get_data()
+        saved_phone = data.get("user_phone")
+
+        if saved_phone:
+            # Номер уже сохранен, предлагаем использовать его
+            await message.edit_text(
+                f"У вас сохранен номер телефона: {saved_phone}\n\n"
+                "Хотите использовать его для оформления заказа?",
+                reply_markup=ContactHandler.get_use_saved_phone_keyboard(saved_phone)
+            )
+            return True
+        else:
+            # Номера нет, запрашиваем новый
+            text = contact_text or "Для оформления заказа поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения."
+            from keyboards.hotels import get_share_contact_keyboard
+            await message.edit_text(
+                text,
+                reply_markup=get_share_contact_keyboard()
+            )
+            return False
     
     @staticmethod
     async def process_text_phone(message: Message, state: FSMContext) -> bool:
@@ -34,8 +78,8 @@ class ContactHandler:
         except:
             pass
         
-        # Сохраняем номер
-        await state.update_data(phone_number=phone_number)
+        # Сохраняем номер (для текущей сессии и как постоянный профиль)
+        await state.update_data(phone_number=phone_number, user_phone=phone_number)
         
         # Отправляем подтверждение
         await message.answer(
@@ -62,8 +106,8 @@ class ContactHandler:
         if not phone_number.startswith('+'):
             phone_number = '+' + phone_number
         
-        # Сохраняем номер
-        await state.update_data(phone_number=phone_number)
+        # Сохраняем номер (для текущей сессии и как постоянный профиль)
+        await state.update_data(phone_number=phone_number, user_phone=phone_number)
         
         # Отправляем подтверждение
         await message.answer(

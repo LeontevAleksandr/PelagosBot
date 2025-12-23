@@ -12,7 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_TOKEN
 
 # Импорт роутеров
-from handlers import start, main_menu, support, search, hotels, excursions, packages, transfers, order
+from handlers import start, main_menu, profile, support, search, hotels, excursions, packages, transfers, order
 
 # Инициализация Pelagos API и data_loader
 from services.pelagos_api import PelagosAPI
@@ -60,6 +60,7 @@ async def main():
     # Регистрация роутеров (порядок важен!)
     dp.include_router(start.router)
     dp.include_router(main_menu.router)
+    dp.include_router(profile.router)  # Управление профилем пользователя
     dp.include_router(order.router)  # Управление заказом/корзиной
     dp.include_router(hotels.router)  # Флоу отелей
     dp.include_router(excursions.router)  # Флоу экскурсий

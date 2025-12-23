@@ -20,7 +20,6 @@ from keyboards import (
     get_price_range_keyboard,
     get_hotel_navigation_keyboard,
     get_hotel_rooms_keyboard,
-    get_share_contact_keyboard,
     get_hotel_card_simple_keyboard,
     get_cards_pagination_keyboard,
     get_back_to_main_keyboard,
@@ -1003,9 +1002,11 @@ async def book_hotel_now(callback: CallbackQuery, state: FSMContext):
     """Забронировать отель сейчас (запросить контакт)"""
     await callback.answer()
 
-    await callback.message.edit_text(
-        "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
-        reply_markup=get_share_contact_keyboard()
+    # Используем новую функцию для проверки сохраненного номера
+    await contact_handler.request_phone(
+        callback.message,
+        state,
+        "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения."
     )
 
     await state.set_state(UserStates.SHARE_CONTACT)

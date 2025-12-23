@@ -18,6 +18,8 @@ from utils.texts import (
     get_main_menu_text
 )
 from database.db_crud import get_orders_for_user
+from utils.contact_handler import contact_handler
+from utils.texts import CONTACT_RECEIVED
 
 router = Router()
 
@@ -45,15 +47,48 @@ async def show_my_orders(callback: CallbackQuery, state: FSMContext):
     await view_order(callback, state)
 
 
+@router.callback_query(F.data == "phone:use_saved")
+async def use_saved_phone_global(callback: CallbackQuery, state: FSMContext):
+    """Использовать сохраненный номер телефона (глобальный обработчик)"""
+    await callback.answer()
+
+    data = await state.get_data()
+    saved_phone = data.get("user_phone")
+
+    # Сохраняем как текущий номер для заказа
+    await state.update_data(phone_number=saved_phone)
+
+    # Показываем подтверждение
+    await callback.message.edit_text(
+        CONTACT_RECEIVED,
+        reply_markup=get_back_to_main_keyboard()
+    )
+
+    await state.set_state(UserStates.MAIN_MENU)
+
+
+@router.callback_query(F.data == "phone:enter_new")
+async def enter_new_phone_global(callback: CallbackQuery, state: FSMContext):
+    """Ввести новый номер телефона (глобальный обработчик)"""
+    await callback.answer()
+
+    from keyboards.hotels import get_share_contact_keyboard
+    await callback.message.edit_text(
+        "Для оформления заказа поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
+        reply_markup=get_share_contact_keyboard()
+    )
+    # Состояние остается SHARE_CONTACT
+
+
 @router.callback_query(F.data == "back:main")
 async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     """Вернуться в главное меню"""
     await callback.answer()
-    
+
     # Получаем имя пользователя из состояния
     data = await state.get_data()
     user_name = data.get("user_name", "Друг")
-    
+
     try:
         await callback.message.edit_text(
             get_main_menu_text(user_name),
@@ -70,7 +105,7 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
             get_main_menu_text(user_name),
             reply_markup=get_main_menu_keyboard()
         )
-    
+
     await state.set_state(UserStates.MAIN_MENU)
 
 

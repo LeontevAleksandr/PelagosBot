@@ -60,3 +60,8 @@ class UserStates(StatesGroup):
     # Прочее
     OTHER_MENU = State()
     SHARE_CONTACT = State()
+
+    # Профиль пользователя
+    PROFILE_VIEW = State()
+    PROFILE_EDIT_NAME = State()
+    PROFILE_EDIT_PHONE = State()
