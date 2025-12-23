@@ -226,13 +226,13 @@ async def search_hotels(query: str) -> list:
 
         await api.close()
 
-        # Выполняем нечеткий поиск
+        # Выполняем умный поиск с синонимами
         results = hybrid_search(
             query=query,
             items=all_hotels,
             field_name="name",
-            limit=10,
-            threshold=50  # Порог для нечеткого поиска
+            limit=15,  # Увеличили лимит
+            threshold=40  # Снизили порог для большей гибкости
         )
 
         return results
@@ -252,13 +252,26 @@ async def search_excursions(query: str, excursion_type: str = "private") -> list
         # Используем DataLoader для получения экскурсий
         loader = get_data_loader()
 
-        # Для индивидуальных экскурсий используем get_all_services
+        # Для индивидуальных экскурсий используем get_private_excursions
         if excursion_type == "private":
             api = PelagosAPI(api_key=os.getenv("PELAGOS_API_KEY"))
-            all_services = await api.get_all_services()
 
-            # Фильтруем только экскурсии (subtype != 1200, это трансферы)
-            excursions = [s for s in all_services if s.subtype != 1200]
+            # Получаем индивидуальные экскурсии со всех островов
+            from datetime import datetime, timedelta
+            tomorrow = datetime.now() + timedelta(days=1)
+            api_date = tomorrow.strftime("%d.%m.%Y")
+
+            all_services = []
+            location_ids = [9, 10, 8, 11]  # cebu, bohol, boracay, palawan
+
+            for location_id in location_ids:
+                services = await api.get_private_excursions(
+                    location_id=location_id,
+                    date=api_date
+                )
+                all_services.extend(services)
+
+            excursions = all_services
             await api.close()
 
         # Для групповых и попутчиков - получаем через загрузчик
@@ -278,13 +291,13 @@ async def search_excursions(query: str, excursion_type: str = "private") -> list
         else:
             return []
 
-        # Выполняем нечеткий поиск
+        # Выполняем умный поиск с синонимами
         results = hybrid_search(
             query=query,
             items=excursions,
             field_name="name",
-            limit=10,
-            threshold=50
+            limit=15,  # Увеличили лимит
+            threshold=40  # Снизили порог для большей гибкости
         )
 
         return results
@@ -398,28 +411,13 @@ async def display_excursion_results(message: Message, query: str, results: list,
         from handlers.excursions import send_private_excursions_cards_page
         from utils.loaders.excursions_loader import ExcursionsLoader
 
-        # Преобразуем объекты Service в словари для обработчика
+        # Преобразуем словари в формат для обработчика
+        # get_private_excursions уже возвращает словари, просто передаем их в _service_to_dict
         loader = ExcursionsLoader(api=None)
         excursions_dict = []
         for exc in excursions:
-            # Service не имеет поля location, используем 0 (общие)
-            exc_dict = loader._service_to_dict(
-                {
-                    'id': exc.id,
-                    'name': exc.name,
-                    'location': 0,  # У Service нет location, ставим 0 (общие)
-                    'pics': exc.pics if exc.pics else [],
-                    'html': getattr(exc, 'inhttp', ''),  # Используем inhttp для описания
-                    'min_price': exc.min_price if exc.min_price else 0,
-                    'max_price': exc.max_price if exc.max_price else 0,
-                    'rlst': [],  # У Service нет rlst напрямую
-                    'russian_guide': exc.russian_guide if exc.russian_guide else 0,
-                    'private_transport': exc.private_transport if exc.private_transport else 0,
-                    'lunch_included': exc.lunch_included if exc.lunch_included else 0,
-                    'tickets_included': exc.tickets_included if exc.tickets_included else 0,
-                },
-                excursion_type="private"
-            )
+            # exc уже словарь из get_private_excursions, передаем напрямую
+            exc_dict = loader._service_to_dict(exc, excursion_type="private")
             if exc_dict:
                 excursions_dict.append(exc_dict)
 
