@@ -284,23 +284,12 @@ class ExcursionsLoader:
             excursions = []
             for event in events:
                 exc_dict = self._event_to_dict(event, excursion_type or "group")
-
-                # ОТЛАДКА: логируем каждое событие
-                if exc_dict:
-                    event_location = getattr(event.service, 'location', None) if event.service else None
-                    logger.info(f"🔍 Событие: id={exc_dict.get('id')}, name={exc_dict.get('name')[:30]}, "
-                               f"event.service.location={event_location}, "
-                               f"exc_dict.island={exc_dict.get('island')}, "
-                               f"filter_island={island}, "
-                               f"match={exc_dict.get('island') == island.lower() if island else 'no_filter'}")
-
                 # ИСПРАВЛЕНИЕ: Не фильтруем по острову для групповых экскурсий,
                 # так как API уже вернул события для нужной локации (параметр location в запросе).
                 # Фильтрация по острову в exc_dict может не совпадать, потому что
                 # service.location указывает на базовую локацию сервиса, а не на локацию события.
                 if exc_dict:
                     excursions.append(exc_dict)
-                    logger.info(f"✅ Добавлено событие: {exc_dict.get('name')[:30]}")
 
             # Кэшируем
             self.cache.set(cache_key, excursions, ttl=self.CACHE_TTL_GROUP)
