@@ -51,6 +51,12 @@ class UserStates(StatesGroup):
     TRANSFERS_INPUT_PEOPLE = State()
     TRANSFERS_SHOW_RESULTS = State()
     
+    # Поиск
+    SEARCH_SELECT_CATEGORY = State()
+    SEARCH_EXCURSIONS_SELECT_TYPE = State()  # Выбор типа экскурсии для поиска
+    SEARCH_INPUT_QUERY = State()
+    SEARCH_SHOW_RESULTS = State()
+
     # Прочее
     OTHER_MENU = State()
     SHARE_CONTACT = State()

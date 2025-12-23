@@ -24,7 +24,8 @@ from keyboards import (
     get_all_locations_keyboard,
     get_group_excursion_full_keyboard,
     get_action_choice_keyboard,
-    get_group_month_excursion_detail_keyboard
+    get_group_month_excursion_detail_keyboard,
+    get_month_excursions_list_keyboard
 )
 from handlers.main_menu import show_main_menu
 from utils.texts import (
@@ -80,15 +81,18 @@ MONTH_NAMES_GENITIVE = [
 async def start_excursions_flow(callback: CallbackQuery, state: FSMContext):
     """Начало флоу экскурсий - выбор острова"""
     await callback.answer()
-    
+
+    # Очищаем filtered_excursions если они остались от поиска
+    await state.update_data(filtered_excursions=None, search_query=None)
+
     data = await state.get_data()
     user_name = data.get("user_name", "Друг")
-    
+
     await callback.message.edit_text(
         get_excursions_intro_text(user_name),
         reply_markup=get_islands_keyboard()
     )
-    
+
     await state.set_state(UserStates.EXCURSIONS_SELECT_ISLAND)
 
 
@@ -98,6 +102,9 @@ async def start_excursions_flow(callback: CallbackQuery, state: FSMContext):
 async def select_island_for_excursions(callback: CallbackQuery, state: FSMContext):
     """Выбор острова для экскурсий"""
     await callback.answer()
+
+    # Очищаем filtered_excursions если они остались от поиска
+    await state.update_data(filtered_excursions=None, search_query=None)
 
     island_code = callback.data.split(":")[1]
 
@@ -601,46 +608,19 @@ async def show_group_month_excursions_list(message: Message, state: FSMContext, 
 
         text += f"Показаны экскурсии {start_idx + 1}-{end_idx} из {total_excursions}\n\n"
 
-        # Формируем кнопки для каждой экскурсии на странице
-        buttons = []
-
-        for exc in page_excursions:
-            # Текст кнопки: дата + название (обрезаем если длинное)
-            button_text = f"📅 {format_date(exc['date'])} - {exc['name'][:MAX_EXCURSION_NAME_LENGTH]}"
-            if len(exc['name']) > MAX_EXCURSION_NAME_LENGTH:
-                button_text += "..."
-
-            buttons.append([InlineKeyboardButton(
-                text=button_text,
-                callback_data=f"exc_group_month_view:{exc['id']}"
-            )])
-
-        # Навигация по страницам (если больше одной страницы)
-        if total_pages > 1:
-            nav_buttons = []
-            if page > 0:
-                nav_buttons.append(InlineKeyboardButton(text="⬅️ Пред", callback_data=f"exc_group_month_page:{page-1}"))
-            nav_buttons.append(InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data="exc_group_month_page:ignore"))
-            if page < total_pages - 1:
-                nav_buttons.append(InlineKeyboardButton(text="След ➡️", callback_data=f"exc_group_month_page:{page+1}"))
-            buttons.append(nav_buttons)
-
-        # Навигация по месяцам
-        prev_month = month - 1 if month > 1 else 12
-        prev_year = year if month > 1 else year - 1
-
-        next_month = month + 1 if month < 12 else 1
-        next_year = year if month < 12 else year + 1
-
-        buttons.append([
-            InlineKeyboardButton(text="◀️ Пред. месяц", callback_data=f"exc_group_month:{prev_year}-{prev_month:02d}"),
-            InlineKeyboardButton(text="След. месяц ▶️", callback_data=f"exc_group_month:{next_year}-{next_month:02d}")
-        ])
-
-        buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")])
-        buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        # Используем универсальную клавиатуру
+        keyboard = get_month_excursions_list_keyboard(
+            excursions=page_excursions,
+            page=page,
+            total_pages=total_pages,
+            year=year,
+            month=month,
+            view_callback_prefix="exc_group_month_view",
+            page_callback_prefix="exc_group_month_page",
+            month_callback_prefix="exc_group_month",
+            show_create_button=False,
+            max_name_length=MAX_EXCURSION_NAME_LENGTH
+        )
 
         await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -1059,47 +1039,19 @@ async def show_companions_list(message: Message, state: FSMContext, year: int, m
 
         text += f"Показаны экскурсии {start_idx + 1}-{end_idx} из {total_excursions}\n\n"
 
-        # Формируем кнопки для каждой экскурсии на странице
-        buttons = []
-
-        for exc in page_excursions:
-            # Текст кнопки: дата + название (обрезаем если длинное)
-            button_text = f"📅 {format_date(exc['date'])} - {exc['name'][:MAX_EXCURSION_NAME_LENGTH]}"
-            if len(exc['name']) > MAX_EXCURSION_NAME_LENGTH:
-                button_text += "..."
-
-            buttons.append([InlineKeyboardButton(
-                text=button_text,
-                callback_data=f"comp_view:{exc['id']}"
-            )])
-
-        # Навигация по страницам (если больше одной страницы)
-        if total_pages > 1:
-            nav_buttons = []
-            if page > 0:
-                nav_buttons.append(InlineKeyboardButton(text="⬅️ Пред", callback_data=f"comp_page:{page-1}"))
-            nav_buttons.append(InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data="comp_page:ignore"))
-            if page < total_pages - 1:
-                nav_buttons.append(InlineKeyboardButton(text="След ➡️", callback_data=f"comp_page:{page+1}"))
-            buttons.append(nav_buttons)
-
-        # Навигация по месяцам
-        prev_month = month - 1 if month > 1 else 12
-        prev_year = year if month > 1 else year - 1
-
-        next_month = month + 1 if month < 12 else 1
-        next_year = year if month < 12 else year + 1
-
-        buttons.append([
-            InlineKeyboardButton(text="◀️ Пред. месяц", callback_data=f"comp_month:{prev_year}-{prev_month:02d}"),
-            InlineKeyboardButton(text="След. месяц ▶️", callback_data=f"comp_month:{next_year}-{next_month:02d}")
-        ])
-
-        buttons.append([InlineKeyboardButton(text="➕ Создать свою заявку", callback_data="comp_create:start")])
-        buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")])
-        buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        # Используем универсальную клавиатуру
+        keyboard = get_month_excursions_list_keyboard(
+            excursions=page_excursions,
+            page=page,
+            total_pages=total_pages,
+            year=year,
+            month=month,
+            view_callback_prefix="comp_view",
+            page_callback_prefix="comp_page",
+            month_callback_prefix="comp_month",
+            show_create_button=True,
+            max_name_length=MAX_EXCURSION_NAME_LENGTH
+        )
 
         await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
 

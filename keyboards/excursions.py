@@ -272,3 +272,78 @@ def get_group_month_excursion_detail_keyboard(excursion_id: str) -> InlineKeyboa
         [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_month_excursions_list_keyboard(
+    excursions: list,
+    page: int,
+    total_pages: int,
+    year: int,
+    month: int,
+    view_callback_prefix: str,
+    page_callback_prefix: str,
+    month_callback_prefix: str,
+    show_create_button: bool = False,
+    max_name_length: int = 40
+) -> InlineKeyboardMarkup:
+    """
+    Универсальная клавиатура для списка экскурсий за месяц с постраничной навигацией
+
+    Args:
+        excursions: Список экскурсий для текущей страницы
+        page: Текущая страница (0-based)
+        total_pages: Общее количество страниц
+        year: Год
+        month: Месяц
+        view_callback_prefix: Префикс для просмотра экскурсии (напр. "exc_group_month_view" или "comp_view")
+        page_callback_prefix: Префикс для навигации по страницам (напр. "exc_group_month_page" или "comp_page")
+        month_callback_prefix: Префикс для навигации по месяцам (напр. "exc_group_month" или "comp_month")
+        show_create_button: Показывать ли кнопку "Создать свою заявку"
+        max_name_length: Максимальная длина названия в кнопке
+    """
+    from utils.helpers import format_date
+
+    buttons = []
+
+    # Формируем кнопки для каждой экскурсии на странице
+    for exc in excursions:
+        # Текст кнопки: дата + название (обрезаем если длинное)
+        button_text = f"📅 {format_date(exc['date'])} - {exc['name'][:max_name_length]}"
+        if len(exc['name']) > max_name_length:
+            button_text += "..."
+
+        buttons.append([InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"{view_callback_prefix}:{exc['id']}"
+        )])
+
+    # Навигация по страницам (если больше одной страницы)
+    if total_pages > 1:
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton(text="⬅️ Пред", callback_data=f"{page_callback_prefix}:{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data=f"{page_callback_prefix}:ignore"))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton(text="След ➡️", callback_data=f"{page_callback_prefix}:{page+1}"))
+        buttons.append(nav_buttons)
+
+    # Навигация по месяцам
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+
+    next_month = month + 1 if month < 12 else 1
+    next_year = year if month < 12 else year + 1
+
+    buttons.append([
+        InlineKeyboardButton(text="◀️ Пред. месяц", callback_data=f"{month_callback_prefix}:{prev_year}-{prev_month:02d}"),
+        InlineKeyboardButton(text="След. месяц ▶️", callback_data=f"{month_callback_prefix}:{next_year}-{next_month:02d}")
+    ])
+
+    # Кнопка создания заявки (только для попутчиков)
+    if show_create_button:
+        buttons.append([InlineKeyboardButton(text="➕ Создать свою заявку", callback_data="comp_create:start")])
+
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")])
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

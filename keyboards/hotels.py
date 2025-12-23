@@ -236,7 +236,7 @@ def get_hotel_rooms_keyboard(hotel_id: str, rooms: list) -> InlineKeyboardMarkup
     # Кнопки бронирования номеров
     for room in rooms:
         buttons.append([InlineKeyboardButton(
-            text=f"Бронировать {room['name']}",
+            text=f"{room['name']}",
             callback_data=f"book:{hotel_id}:{room['id']}"
         )])
 

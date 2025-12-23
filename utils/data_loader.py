@@ -34,7 +34,8 @@ class DataLoader:
         page: int = 0,
         per_page: int = None,
         check_in: str = None,
-        check_out: str = None
+        check_out: str = None,
+        filtered_hotels: list = None
     ) -> dict:
         """Получить отели по фильтрам"""
         return await self.hotels_loader.get_hotels_by_filters(
@@ -45,7 +46,8 @@ class DataLoader:
             page=page,
             per_page=per_page,
             check_in=check_in,
-            check_out=check_out
+            check_out=check_out,
+            filtered_hotels=filtered_hotels
         )
 
     async def get_hotel_by_id(

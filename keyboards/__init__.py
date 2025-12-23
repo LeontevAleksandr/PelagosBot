@@ -6,7 +6,8 @@ from .common import (
     get_main_menu_keyboard,
     get_menu_keyboard,
     get_support_keyboard,
-    get_back_to_main_keyboard
+    get_back_to_main_keyboard,
+    get_search_category_keyboard
 )
 
 from .hotels import (
@@ -36,7 +37,8 @@ from .excursions import (
     get_companions_select_excursion_keyboard,
     get_group_excursion_full_keyboard,
     get_action_choice_keyboard,
-    get_group_month_excursion_detail_keyboard
+    get_group_month_excursion_detail_keyboard,
+    get_month_excursions_list_keyboard
 )
 
 from .transfers import (
@@ -53,6 +55,7 @@ __all__ = [
     'get_menu_keyboard',
     'get_support_keyboard',
     'get_back_to_main_keyboard',
+    'get_search_category_keyboard',
     # Hotels
     'get_islands_keyboard',
     'get_all_locations_keyboard',
@@ -79,6 +82,7 @@ __all__ = [
     'get_group_excursion_full_keyboard',
     'get_action_choice_keyboard',
     'get_group_month_excursion_detail_keyboard',
+    'get_month_excursions_list_keyboard',
     # Transfers
     'get_transfer_navigation_keyboard',
     'get_transfer_card_simple_keyboard',

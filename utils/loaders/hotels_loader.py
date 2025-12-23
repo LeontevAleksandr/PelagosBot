@@ -73,10 +73,21 @@ class HotelsLoader:
         page: int = 0,
         per_page: int = None,
         check_in: str = None,
-        check_out: str = None
+        check_out: str = None,
+        filtered_hotels: list = None
     ) -> dict:
-        
-        logger.info(f"🔍 get_hotels_by_filters: island={island}, stars={stars}, page={page}, per_page={per_page}")
+
+        logger.info(f"🔍 get_hotels_by_filters: island={island}, stars={stars}, page={page}, per_page={per_page}, filtered_hotels={len(filtered_hotels) if filtered_hotels else 0}")
+
+        # Если передан список предварительно отфильтрованных отелей (из поиска)
+        if filtered_hotels is not None:
+            return await self._get_filtered_hotels_page(
+                filtered_hotels=filtered_hotels,
+                page=page,
+                per_page=per_page or 5,
+                check_in=check_in,
+                check_out=check_out
+            )
 
         if not self.api or not island:
             logger.warning(f"⚠️ Нет API или острова")
@@ -570,9 +581,108 @@ class HotelsLoader:
             return 0.0
 
     def _convert_room(self, room: HotelRoom, price: Optional[float] = None) -> dict:
-        """Преобразовать HotelRoom в dict для обработчика"""
+        """Преобразовать HotelRoom in dict для обработчика"""
         return {
             'id': str(room.id),
             'name': room.name,
             'price': price if price is not None else 0  # Реальная цена или 0 если не загружена
+        }
+
+    async def _get_filtered_hotels_page(
+        self,
+        filtered_hotels: list,
+        page: int = 0,
+        per_page: int = 5,
+        check_in: str = None,
+        check_out: str = None
+    ) -> dict:
+        """
+        Получить страницу из предварительно отфильтрованного списка отелей (для поиска)
+
+        Args:
+            filtered_hotels: список словарей отелей из поиска
+            page: номер страницы (0-based)
+            per_page: количество отелей на странице
+            check_in: дата заезда
+            check_out: дата выезда
+        """
+        if not filtered_hotels:
+            return {'hotels': [], 'total': 0, 'page': 0, 'total_pages': 0}
+
+        total_hotels = len(filtered_hotels)
+        total_pages = (total_hotels + per_page - 1) // per_page
+
+        # Получаем отели для текущей страницы
+        start_idx = page * per_page
+        end_idx = start_idx + per_page
+        page_hotels = filtered_hotels[start_idx:end_idx]
+
+        logger.info(f"📄 Страница {page+1}/{total_pages}: отели {start_idx}-{min(end_idx, total_hotels)-1} из {total_hotels}")
+
+        # Загружаем номера и цены для отелей на странице
+        result = []
+        import asyncio
+
+        async def load_hotel_with_rooms(hotel_dict):
+            """Загрузить номера и цены для отеля из словаря"""
+            try:
+                hotel_id = int(hotel_dict['id'])
+
+                # Получаем номера из кэша или API
+                cache_key = f"hotel:rooms:{hotel_id}"
+                cached_rooms = self.cache.get(cache_key)
+
+                if cached_rooms:
+                    rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
+                else:
+                    rooms = await self.api.get_all_rooms(hotel_id)
+                    # Кэшируем номера
+                    rooms_dicts = [
+                        {
+                            'id': r.id,
+                            'name': r.name,
+                            'parent': r.parent,
+                            'type': r.type
+                        }
+                        for r in rooms
+                    ]
+                    self.cache.set(cache_key, rooms_dicts, ttl=self.CACHE_TTL)
+
+                # Загружаем цены параллельно
+                rooms_data = []
+                if rooms:
+                    room_prices_tasks = [
+                        self._get_room_price(r.id, check_in, check_out)
+                        for r in rooms
+                    ]
+                    prices = await asyncio.gather(*room_prices_tasks, return_exceptions=True)
+
+                    for room, price in zip(rooms, prices):
+                        price_value = price if not isinstance(price, Exception) else None
+                        rooms_data.append(self._convert_room(room, price_value))
+
+                # Обновляем словарь отеля с номерами
+                hotel_dict['rooms'] = rooms_data
+                return hotel_dict
+
+            except Exception as e:
+                logger.error(f"❌ Ошибка загрузки данных для отеля {hotel_dict.get('id')}: {e}")
+                # Возвращаем отель без номеров
+                hotel_dict['rooms'] = []
+                return hotel_dict
+
+        # Параллельная загрузка всех отелей страницы
+        hotels_tasks = [load_hotel_with_rooms(h) for h in page_hotels]
+        result = await asyncio.gather(*hotels_tasks, return_exceptions=True)
+
+        # Фильтруем ошибки
+        result = [h for h in result if not isinstance(h, Exception)]
+
+        logger.info(f"✅ Загружено {len(result)} отелей для страницы {page+1}")
+
+        return {
+            'hotels': result,
+            'total': total_hotels,
+            'page': page,
+            'total_pages': total_pages
         }
