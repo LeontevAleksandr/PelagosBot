@@ -268,18 +268,24 @@ async def book_transfer_now(callback: CallbackQuery, state: FSMContext):
     """Забронировать трансфер сейчас - запрос контакта"""
     await callback.answer()
 
+    # ВАЖНО: Добавляем трансфер в корзину ПЕРЕД запросом контакта
     data = await state.get_data()
     transfer_id = data.get("selected_transfer_id")
+    people_count = data.get("transfer_people_count", 1)
+
     transfer = await get_data_loader().get_transfer_by_id(transfer_id)
 
     if not transfer:
+        await callback.answer("❌ Трансфер не найден", show_alert=True)
         return
 
-    # Используем новую функцию для проверки сохраненного номера
-    await contact_handler.request_phone(
-        callback.message,
-        state,
-        "Для бронирования трансфера поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения."
+    # Добавляем в заказ
+    updated_data = order_manager.add_transfer(data, transfer, people_count)
+    await state.update_data(order=updated_data["order"])
+
+    await callback.message.edit_text(
+        "Для бронирования трансфера поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
+        reply_markup=get_share_contact_keyboard()
     )
 
     await state.set_state(UserStates.SHARE_CONTACT)
@@ -290,21 +296,17 @@ async def book_transfer_now(callback: CallbackQuery, state: FSMContext):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_transfer_phone(message: Message, state: FSMContext):
     """Обработка номера телефона для трансферов"""
-    success = await contact_handler.process_text_phone(message, state)
-    if success:
-        data = await state.get_data()
-        updated_data = order_manager.clear_order(data)
-        await state.update_data(order=updated_data["order"])
+    if await contact_handler.process_text_phone(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_transfer_contact(message: Message, state: FSMContext):
     """Обработка контакта для трансферов"""
-    success = await contact_handler.process_contact(message, state)
-    if success:
-        data = await state.get_data()
-        updated_data = order_manager.clear_order(data)
-        await state.update_data(order=updated_data["order"])
+    if await contact_handler.process_contact(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 # ========== Показ всех трансферов страницами ==========

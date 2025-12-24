@@ -339,18 +339,14 @@ async def book_package_now(callback: CallbackQuery, state: FSMContext):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_package_phone(message: Message, state: FSMContext):
     """Обработка номера телефона для пакетных туров"""
-    success = await contact_handler.process_text_phone(message, state)
-    if success:
-        data = await state.get_data()
-        updated_data = order_manager.clear_order(data)
-        await state.update_data(order=updated_data["order"])
+    if await contact_handler.process_text_phone(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_package_contact(message: Message, state: FSMContext):
     """Обработка контакта для пакетных туров"""
-    success = await contact_handler.process_contact(message, state)
-    if success:
-        data = await state.get_data()
-        updated_data = order_manager.clear_order(data)
-        await state.update_data(order=updated_data["order"])
+    if await contact_handler.process_contact(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)

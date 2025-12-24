@@ -1430,9 +1430,11 @@ async def book_excursion_now(callback: CallbackQuery, state: FSMContext):
     updated_data = order_manager.add_excursion(data, excursion, people_count)
     await state.update_data(order=updated_data["order"])
 
-    await callback.message.edit_text(
-        "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
-        reply_markup=get_share_contact_keyboard()
+    # Используем contact_handler для проверки сохранённого номера
+    await contact_handler.request_phone(
+        callback.message,
+        state,
+        "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения."
     )
 
     await state.set_state(UserStates.SHARE_CONTACT)

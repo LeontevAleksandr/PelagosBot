@@ -11,23 +11,24 @@ class OrderManager:
         return state_data.get("order", [])
 
     @staticmethod
-    def add_hotel(state_data: dict, hotel: dict, room: dict, nights: int, check_in: str = None, check_out: str = None) -> dict:
+    def add_hotel(state_data: dict, hotel: dict, room: dict, nights: int, check_in: str = None, check_out: str = None, room_count: int = 1) -> dict:
         """Добавить отель в заказ"""
         order = state_data.get("order", [])
 
-        total_price = room["price"] * nights
+        # Цена = цена_за_номер_за_ночь * количество_ночей * количество_номеров
+        total_price = room["price"] * nights * room_count
 
         order.append({
             "type": "hotel",
             "name": f"{hotel['name']} - {room['name']}",
-            "details": f"{nights} ноч.",
+            "details": f"{nights} ноч., {room_count} ном." if room_count > 1 else f"{nights} ноч.",
             "price_usd": total_price,
             # Дополнительные данные для API
             "hotel_id": int(hotel.get("id", 0)),  # ID отеля (обязательно для API)
             "service_id": room.get("id", 0),  # ID номера (object_id для API)
             "check_in": check_in,
             "check_out": check_out,
-            "quantity": 1,
+            "quantity": room_count,
             "adults": 2,  # По умолчанию 2 взрослых
             "children_with_bed": 0,
             "children_without_bed": 0

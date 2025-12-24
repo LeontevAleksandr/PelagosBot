@@ -991,9 +991,10 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
         data,
         hotel,
         room,
-        nights * room_count,
+        nights,
         check_in=check_in,  # Передаем в формате YYYY-MM-DD
-        check_out=check_out
+        check_out=check_out,
+        room_count=room_count
     )
     await state.update_data(order=updated_data["order"])
 
@@ -1045,9 +1046,10 @@ async def book_hotel_now(callback: CallbackQuery, state: FSMContext):
         data,
         hotel,
         room,
-        nights * room_count,
+        nights,
         check_in=check_in,
-        check_out=check_out
+        check_out=check_out,
+        room_count=room_count
     )
     await state.update_data(order=updated_data["order"])
 
