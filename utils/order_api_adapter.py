@@ -14,15 +14,7 @@ class OrderAPIAdapter:
 
     @staticmethod
     def format_datetime(date_str: str) -> str:
-        """
-        Преобразовать дату из формата бота в формат API "DD.MM.YYYY HH:MM"
 
-        Args:
-            date_str: Дата в формате YYYY-MM-DD или DD.MM.YYYY
-
-        Returns:
-            Дата в формате "DD.MM.YYYY HH:MM"
-        """
         if not date_str:
             return ""
 
@@ -48,15 +40,7 @@ class OrderAPIAdapter:
 
     @staticmethod
     def prepare_order_data(state_data: dict) -> Dict[str, Any]:
-        """
-        Подготовить данные заказа для создания через API
 
-        Args:
-            state_data: данные из FSM состояния бота
-
-        Returns:
-            dict с данными для создания заказа
-        """
         user_name = state_data.get("user_name", "")
         user_phone = state_data.get("user_phone", "")
 
@@ -79,16 +63,7 @@ class OrderAPIAdapter:
         hotel_item: dict,
         state_data: dict
     ) -> Dict[str, Any]:
-        """
-        Преобразовать элемент отеля из корзины в формат пункта заказа
 
-        Args:
-            hotel_item: элемент корзины типа "hotel"
-            state_data: данные из FSM состояния
-
-        Returns:
-            dict с параметрами для add_order_part в новом формате API
-        """
         user_name = state_data.get("user_name", "")
         user_phone = state_data.get("user_phone", "")
 
@@ -121,25 +96,13 @@ class OrderAPIAdapter:
         excursion_item: dict,
         state_data: dict
     ) -> Dict[str, Any]:
-        """
-        Преобразовать элемент экскурсии из корзины в формат пункта заказа
-
-        Args:
-            excursion_item: элемент корзины типа "excursion"
-            state_data: данные из FSM состояния
-
-        Returns:
-            dict с параметрами для add_order_part в новом формате API
-        """
-        # Извлекаем количество человек
+        
         people_count = excursion_item.get("people_count", 1)
 
-        # ID экскурсии (используется как object_id)
         excursion_id = excursion_item.get("service_id", 0)
 
-        # Формируем stime и etime из даты, времени и продолжительности
-        excursion_date = excursion_item.get("date", "")  # YYYY-MM-DD
-        excursion_time = excursion_item.get("time", "00:00")  # HH:MM
+        excursion_date = excursion_item.get("date", "")
+        excursion_time = excursion_item.get("time", "00:00")
         duration_minutes = excursion_item.get("duration", 180)  # По умолчанию 3 часа
 
         stime = ""
@@ -147,18 +110,14 @@ class OrderAPIAdapter:
 
         if excursion_date:
             try:
-                # Формируем datetime начала экскурсии
                 date_time_str = f"{excursion_date} {excursion_time or '00:00'}"
                 dt_start = datetime.strptime(date_time_str, "%Y-%m-%d %H:%M")
 
-                # Формируем stime в формате "DD.MM.YYYY HH:MM"
                 stime = dt_start.strftime("%d.%m.%Y %H:%M")
 
-                # Вычисляем etime: начало + продолжительность
                 if duration_minutes and duration_minutes > 0:
                     dt_end = dt_start + timedelta(minutes=duration_minutes)
                 else:
-                    # Если продолжительность не указана, добавляем 3 часа
                     dt_end = dt_start + timedelta(hours=3)
 
                 etime = dt_end.strftime("%d.%m.%Y %H:%M")
@@ -180,7 +139,7 @@ class OrderAPIAdapter:
             "adults": str(people_count)
         }
 
-        # Добавляем только stime (без etime, чтобы избежать ошибки part_reverse_times)
+        # только stime
         if stime:
             result["stime"] = stime
 
@@ -191,16 +150,7 @@ class OrderAPIAdapter:
         transfer_item: dict,
         state_data: dict
     ) -> Dict[str, Any]:
-        """
-        Преобразовать элемент трансфера из корзины в формат пункта заказа
-
-        Args:
-            transfer_item: элемент корзины типа "transfer"
-            state_data: данные из FSM состояния
-
-        Returns:
-            dict с параметрами для add_order_part в новом формате API
-        """
+    
         user_name = state_data.get("user_name", "")
 
         # Извлекаем количество человек из details
@@ -248,16 +198,7 @@ class OrderAPIAdapter:
         package_item: dict,
         state_data: dict
     ) -> Dict[str, Any]:
-        """
-        Преобразовать элемент пакетного тура из корзины в формат пункта заказа
-
-        Args:
-            package_item: элемент корзины типа "package"
-            state_data: данные из FSM состояния
-
-        Returns:
-            dict с параметрами для add_order_part в новом формате API
-        """
+    
         user_name = state_data.get("user_name", "")
 
         # ID пакетного тура
@@ -293,16 +234,7 @@ class OrderAPIAdapter:
         order: List[dict],
         state_data: dict
     ) -> List[Dict[str, Any]]:
-        """
-        Преобразовать весь заказ (корзину) в список пунктов для API
-
-        Args:
-            order: список элементов заказа из state_data["order"]
-            state_data: данные из FSM состояния
-
-        Returns:
-            список словарей с параметрами для add_order_part
-        """
+        
         parts = []
 
         for item in order:

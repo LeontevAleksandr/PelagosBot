@@ -1,5 +1,7 @@
 """Менеджер для работы с медиа-файлами"""
 import os
+import logging
+from utils.data_loader import get_data_loader
 from aiogram.types import FSInputFile, URLInputFile
 
 
@@ -16,15 +18,7 @@ class MediaManager:
         os.makedirs(local_media_dir, exist_ok=True)
     
     async def get_photo(self, photo_path: str):
-        """
-        Получить фото для отправки в Telegram.
-        
-        Args:
-            photo_path: путь к фото (может быть URL или локальный путь)
-        
-        Returns:
-            FSInputFile или URLInputFile или None
-        """
+
         if not photo_path:
             return None
         
@@ -61,15 +55,6 @@ media_manager = MediaManager()
 # ========== Функции для будущей замены на БД ==========
 
 async def get_hotel_photo(hotel_id: str, location_code: str = None):
-    """
-    Получить фото отеля.
-    В будущем заменить на запрос к БД.
-
-    Args:
-        hotel_id: ID отеля
-        location_code: код локации для оптимизации поиска (опционально)
-    """
-    from utils.data_loader import get_data_loader
 
     hotel = await get_data_loader().get_hotel_by_id(int(hotel_id), location_code=location_code)
     if not hotel:
@@ -80,12 +65,6 @@ async def get_hotel_photo(hotel_id: str, location_code: str = None):
 
 
 async def get_excursion_photo(excursion_id: str):
-    """
-    Получить фото экскурсии.
-    В будущем заменить на запрос к БД.
-    """
-    import logging
-    from utils.data_loader import get_data_loader
 
     logger = logging.getLogger(__name__)
 
@@ -105,11 +84,6 @@ async def get_excursion_photo(excursion_id: str):
 
 
 async def get_transfer_photo(transfer_id: str):
-    """
-    Получить фото трансфера.
-    В будущем заменить на запрос к БД.
-    """
-    from utils.data_loader import get_data_loader
 
     transfer = await get_data_loader().get_transfer_by_id(transfer_id)
     if not transfer:

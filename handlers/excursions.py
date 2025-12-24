@@ -592,7 +592,7 @@ async def show_group_month_excursions_list(message: Message, state: FSMContext, 
     """Показать список групповых экскурсий за месяц с постраничным выводом"""
     data = await state.get_data()
 
-    # ИСПРАВЛЕНО: Используем уже загруженные данные из state вместо повторной загрузки
+    # Используем уже загруженные данные из state вместо повторной загрузки
     excursions = data.get("group_month_excursions", [])
 
     # Обновляем только страницу
