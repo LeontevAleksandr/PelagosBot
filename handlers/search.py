@@ -2,8 +2,9 @@
 import logging
 import os
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
+from config import COMPANY_LINKS
 
 from keyboards import (
     get_back_to_main_keyboard,
@@ -44,6 +45,23 @@ async def show_search(message: Message, state: FSMContext):
 
 # ========== Выбор категории ==========
 
+@router.callback_query(F.data == "search:back")
+async def back_to_search_categories(callback: CallbackQuery, state: FSMContext):
+    """Вернуться к выбору категорий поиска"""
+    await callback.answer()
+
+    text = (
+        "🔍 <b>Поиск по системе</b>\n\n"
+        "Выберите категорию для поиска:"
+    )
+
+    await callback.message.edit_text(
+        text,
+        reply_markup=get_search_category_keyboard()
+    )
+    await state.set_state(UserStates.SEARCH_SELECT_CATEGORY)
+
+
 @router.callback_query(F.data.startswith("search:"), UserStates.SEARCH_SELECT_CATEGORY)
 async def select_search_category(callback: CallbackQuery, state: FSMContext):
     """Обработка выбора категории поиска"""
@@ -51,8 +69,35 @@ async def select_search_category(callback: CallbackQuery, state: FSMContext):
 
     category = callback.data.split(":")[1]
 
+    # Обработка кнопки "назад"
+    if category == "back":
+        return
+
     # Сохраняем категорию
     await state.update_data(search_category=category)
+
+    # Для пакетных туров - показываем заглушку
+    if category == "packages":
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Посетить сайт", url=COMPANY_LINKS["packages"])],
+            [InlineKeyboardButton(text="💬 Связаться с менеджером", url=COMPANY_LINKS["support"])],
+            [InlineKeyboardButton(text="🔍 Вернуться к поиску", callback_data="search:back")],
+            [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+        ])
+
+        text = (
+            "📦 <b>Поиск пакетных туров</b>\n\n"
+            "Раздел с пакетными турами находится в разработке!\n\n"
+            "🌟 Чтобы ознакомиться с актуальными предложениями по пакетным турам, "
+            "пожалуйста, посетите наш сайт или свяжитесь с менеджером.\n\n"
+            "Мы работаем над тем, чтобы скоро вы могли искать туры прямо в боте! 🚀"
+        )
+
+        await callback.message.edit_text(
+            text,
+            reply_markup=keyboard
+        )
+        return
 
     # Для экскурсий - сначала выбор типа
     if category == "excursions":

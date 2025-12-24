@@ -24,8 +24,9 @@ class OrderAPI:
         self,
         client_name: str = "",
         agent_name: str = "",
-        group_members: str = "",
-        flight_info: str = ""
+        names: str = "",
+        descr: str = "",
+        tourist_phone: str = ""
     ) -> Optional[Dict[str, Any]]:
         """
         Создать новый заказ
@@ -35,28 +36,36 @@ class OrderAPI:
         Args:
             client_name: Имя клиента
             agent_name: Имя агента
-            group_members: Имена и фамилии всех членов группы на английском языке
-            flight_info: Полётная информация для организации трансферов
+            names: Имена и фамилии всех членов группы
+            descr: Описание/примечания к заказу
+            tourist_phone: Номер телефона туриста
 
         Returns:
             dict с данными созданного заказа (включая order_id) или None
         """
         endpoint = "order-api/create/"
 
-        payload = {}
-        if client_name:
-            payload["client_name"] = client_name
-        if agent_name:
-            payload["agent_name"] = agent_name
-        if group_members:
-            payload["group_members"] = group_members
-        if flight_info:
-            payload["flight_info"] = flight_info
+        payload = {
+            "client_name": client_name,
+            "agent_name": agent_name,
+            "names": names,
+            "descr": descr
+        }
+
+        # Добавляем tourist_phone если передан
+        if tourist_phone:
+            payload["tourist_phone"] = tourist_phone
 
         logger.info(f"📤 Создание заказа для клиента: {client_name}")
 
         try:
-            data = await self.client.post(endpoint, json={"payload": payload})
+            request_body = {"payload": payload}
+            logger.info(f"   POST {endpoint}")
+            logger.info(f"   Тело запроса: {request_body}")
+
+            data = await self.client.post(endpoint, json=request_body)
+
+            logger.info(f"   Ответ API: {data}")
 
             if data and data.get("code") == "OK":
                 order_id = data.get("order_id")
@@ -75,8 +84,9 @@ class OrderAPI:
         order_id: int,
         client_name: str = None,
         agent_name: str = None,
-        group_members: str = None,
-        flight_info: str = None
+        names: str = None,
+        descr: str = None,
+        tourist_phone: str = None
     ) -> Optional[Dict[str, Any]]:
         """
         Изменить параметры заказа
@@ -87,23 +97,26 @@ class OrderAPI:
             order_id: ID заказа
             client_name: Имя клиента
             agent_name: Имя агента
-            group_members: Имена и фамилии всех членов группы
-            flight_info: Полётная информация
+            names: Имена и фамилии всех членов группы
+            descr: Описание/примечания к заказу
+            tourist_phone: Номер телефона туриста
 
         Returns:
             dict с результатом обновления или None
         """
-        endpoint = f"order-api/update/{order_id}/"
+        endpoint = f"order-api/savepart/{order_id}/"
 
         payload = {}
         if client_name is not None:
             payload["client_name"] = client_name
         if agent_name is not None:
             payload["agent_name"] = agent_name
-        if group_members is not None:
-            payload["group_members"] = group_members
-        if flight_info is not None:
-            payload["flight_info"] = flight_info
+        if names is not None:
+            payload["names"] = names
+        if descr is not None:
+            payload["descr"] = descr
+        if tourist_phone is not None:
+            payload["tourist_phone"] = tourist_phone
 
         logger.info(f"📤 Обновление заказа #{order_id}")
 
@@ -185,21 +198,17 @@ class OrderAPI:
     async def add_order_part(
         self,
         order_id: int,
-        service_id: int,
-        check_in: str = None,
-        check_out: str = None,
-        quantity: int = 1,
-        adults: int = 2,
-        children_with_bed: int = 0,
-        children_without_bed: int = 0,
-        breakfast: bool = False,
-        lunch: bool = False,
-        dinner: bool = False,
-        extra_price: float = 0,
-        rooming_list: str = "",
-        transfer_request: str = "",
-        flight_info: str = "",
-        hotel_comment: str = ""
+        client_name: str = "",
+        agent_name: str = "",
+        names: str = "",
+        descr: str = "",
+        tab: str = "",
+        hotel_id: int = None,
+        stime: str = "",
+        etime: str = "",
+        object_id: int = None,
+        multi: str = "",
+        adults: str = ""
     ) -> Optional[Dict[str, Any]]:
         """
         Добавить пункт в заказ
@@ -208,63 +217,64 @@ class OrderAPI:
 
         Args:
             order_id: ID заказа
-            service_id: ID номера или услуги
-            check_in: Дата заезда (YYYY-MM-DD или DD.MM.YYYY)
-            check_out: Дата выезда (YYYY-MM-DD или DD.MM.YYYY)
-            quantity: Количество номеров/услуг
-            adults: Количество взрослых в каждом номере
-            children_with_bed: Количество детей с отдельным местом
-            children_without_bed: Количество детей без места (до 12 лет)
-            breakfast: Завтрак включен
-            lunch: Обед включен
-            dinner: Ужин включен
-            extra_price: Добавка к базовой цене (USD)
-            rooming_list: Имена и фамилии на английском (руминг лист)
-            transfer_request: Запрос на трансфер отеля
-            flight_info: Полётная информация для встречи отелем
-            hotel_comment: Комментарий для отеля
+            client_name: Имя клиента
+            agent_name: Имя агента
+            names: Имена туристов
+            descr: Описание
+            tab: Тип услуги (hotel, transfer, excursion, package)
+            hotel_id: ID отеля (для всех типов услуг)
+            stime: Время начала в формате "DD.MM.YYYY HH:MM"
+            etime: Время окончания в формате "DD.MM.YYYY HH:MM"
+            object_id: ID объекта (номер, экскурсия, трансфер и т.д.)
+            multi: Количество (строка, например "2")
+            adults: Количество взрослых (строка, используется для экскурсий/трансферов)
 
         Returns:
             dict с результатом добавления или None
         """
         endpoint = f"order-api/addpart/{order_id}/"
 
-        payload = {
-            "service_id": service_id,
-            "quantity": quantity,
-            "adults": adults,
-            "children_with_bed": children_with_bed,
-            "children_without_bed": children_without_bed,
-            "extra_price": extra_price
-        }
+        payload = {}
 
-        # Добавляем опциональные поля
-        if check_in:
-            payload["check_in"] = check_in
-        if check_out:
-            payload["check_out"] = check_out
-        if breakfast:
-            payload["breakfast"] = breakfast
-        if lunch:
-            payload["lunch"] = lunch
-        if dinner:
-            payload["dinner"] = dinner
-        if rooming_list:
-            payload["rooming_list"] = rooming_list
-        if transfer_request:
-            payload["transfer_request"] = transfer_request
-        if flight_info:
-            payload["flight_info"] = flight_info
-        if hotel_comment:
-            payload["hotel_comment"] = hotel_comment
+        # Добавляем только непустые поля
+        if tab:
+            payload["tab"] = tab
+        if client_name:
+            payload["client_name"] = client_name
+        if agent_name:
+            payload["agent_name"] = agent_name
+        if names:
+            payload["names"] = names
+        if descr:
+            payload["descr"] = descr
+        if stime:
+            payload["stime"] = stime
+        if etime:
+            payload["etime"] = etime
+        if multi:
+            payload["multi"] = multi
+        if adults:
+            payload["adults"] = adults
+        if hotel_id is not None:
+            payload["hotel_id"] = hotel_id
+        if object_id is not None:
+            payload["object_id"] = object_id
 
-        logger.info(f"📤 Добавление пункта в заказ #{order_id}: service_id={service_id}")
+        logger.info(f"📤 Добавление пункта в заказ #{order_id}: tab={tab}, object_id={object_id}")
+        logger.debug(f"   Полный payload: {payload}")
 
         try:
-            data = await self.client.post(endpoint, json={"payload": payload})
+            request_body = {"payload": payload}
+            logger.info(f"   POST {endpoint}")
+            logger.info(f"   Тело запроса: {request_body}")
+
+            data = await self.client.post(endpoint, json=request_body)
+
+            logger.info(f"   Ответ API: {data}")
 
             if data and data.get("code") == "OK":
-                logger.info(f"✅ Пункт добавлен в заказ #{order_id}")
+                part_id = data.get("part_id")
+                logger.info(f"✅ Пункт добавлен в заказ #{order_id}, part_id={part_id}")
                 return data
             else:
                 logger.error(f"❌ Ошибка добавления пункта: {data}")

@@ -986,8 +986,15 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
     check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
     nights = (check_out_date - check_in_date).days
 
-    # Добавляем в заказ
-    updated_data = order_manager.add_hotel(data, hotel, room, nights * room_count)
+    # Добавляем в заказ с датами для API
+    updated_data = order_manager.add_hotel(
+        data,
+        hotel,
+        room,
+        nights * room_count,
+        check_in=check_in,  # Передаем в формате YYYY-MM-DD
+        check_out=check_out
+    )
     await state.update_data(order=updated_data["order"])
 
     try:
@@ -1002,7 +1009,49 @@ async def book_hotel_now(callback: CallbackQuery, state: FSMContext):
     """Забронировать отель сейчас (запросить контакт)"""
     await callback.answer()
 
-    # Используем новую функцию для проверки сохраненного номера
+    # Сначала добавляем отель в заказ
+    data = await state.get_data()
+    hotel_id = data.get("selected_hotel_id")
+    room_id = data.get("selected_room_id")
+    room_count = data.get("room_count", 1)
+    check_in = data.get("check_in")
+    check_out = data.get("check_out")
+    search_island = data.get("search_island")
+
+    # Для поиска по словам нужно найти отель в списке и взять его location_code
+    hotels = data.get("hotels", [])
+    location_code = search_island
+    if not location_code:
+        # Ищем отель в списке
+        for h in hotels:
+            if h.get("id") == hotel_id:
+                location_code = h.get("location_code")
+                break
+
+    hotel = await get_data_loader().get_hotel_by_id(
+        int(hotel_id),
+        location_code=location_code,
+        check_in=check_in,
+        check_out=check_out
+    )
+    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
+
+    check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
+    check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
+    nights = (check_out_date - check_in_date).days
+
+    # Добавляем в заказ с датами для API
+    updated_data = order_manager.add_hotel(
+        data,
+        hotel,
+        room,
+        nights * room_count,
+        check_in=check_in,
+        check_out=check_out
+    )
+    await state.update_data(order=updated_data["order"])
+
+    # Теперь запрашиваем контакт
     await contact_handler.request_phone(
         callback.message,
         state,
@@ -1311,13 +1360,17 @@ async def request_contact(callback: CallbackQuery):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_phone_number(message: Message, state: FSMContext):
     """Обработка ввода номера телефона"""
-    await contact_handler.process_text_phone(message, state)
+    if await contact_handler.process_text_phone(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_contact(message: Message, state: FSMContext):
     """Обработка контакта, отправленного через кнопку"""
-    await contact_handler.process_contact(message, state)
+    if await contact_handler.process_contact(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 @router.callback_query(F.data == "hotels:back_from_calendar")

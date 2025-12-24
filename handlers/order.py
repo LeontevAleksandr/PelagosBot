@@ -155,6 +155,10 @@ async def finalize_order(message: Message, state: FSMContext):
 
             logger.info(f"✅ Заказ #{order_id} успешно создан в Pelagos")
 
+            # Сохраняем order_id в state для повторного использования
+            await state.update_data(current_order_id=order_id)
+            logger.info(f"💾 Сохранён current_order_id={order_id} в состоянии пользователя")
+
             # Формируем сообщение для пользователя
             success_msg = f"✅ <b>Заказ успешно оформлен!</b>\n\n"
             success_msg += f"Номер заказа: <b>#{order_id}</b>\n"

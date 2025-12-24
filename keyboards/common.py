@@ -55,6 +55,7 @@ def get_search_category_keyboard() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏨 Отели", callback_data="search:hotels")],
         [InlineKeyboardButton(text="🏝 Экскурсии", callback_data="search:excursions")],
+        [InlineKeyboardButton(text="📦 Пакетные туры", callback_data="search:packages")],
         [InlineKeyboardButton(text="🚗 Трансферы", callback_data="search:transfers")],
         [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
     ])

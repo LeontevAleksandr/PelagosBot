@@ -20,7 +20,8 @@ COMPANY_LINKS = {
     "instagram": "https://instagram.com/pelagostours",
     "about": "https://pelagostours.com/about",
     "contacts": "https://pelagostours.com/contacts",
-    "reviews": "https://pelagostours.com/reviews"
+    "reviews": "https://pelagostours.com/reviews",
+    "packages": "https://pelagostours.com/tours"
 }
 
 # Настройки удаления сообщений

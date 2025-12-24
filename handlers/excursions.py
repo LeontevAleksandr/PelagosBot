@@ -356,7 +356,7 @@ async def _update_group_excursion_card(callback: CallbackQuery, state: FSMContex
     # Удаляем старое сообщение
     await callback.message.delete()
 
-    # Используем универсальную функцию отправки
+    # Используем универсаль��ую функцию отправки
     await send_excursion_card_with_photo(callback.message, card_text, keyboard, excursion["id"])
 
 
@@ -710,7 +710,13 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
     if not excursion:
         return
 
-    await state.update_data(selected_excursion_id=excursion_id, excursion_people_count=1)
+    # ВАЖНО: Сохраняем дату экскурсии для последующего добавления в заказ
+    excursion_date = excursion.get("date")
+    await state.update_data(
+        selected_excursion_id=excursion_id,
+        excursion_people_count=1,
+        excursion_date=excursion_date
+    )
 
     # Используем универсальную клавиатуру
     keyboard = get_action_choice_keyboard("group")
@@ -1409,6 +1415,21 @@ async def book_excursion_now(callback: CallbackQuery, state: FSMContext):
     """Забронировать экскурсию сейчас (запросить контакт)"""
     await callback.answer()
 
+    # ВАЖНО: Добавляем экскурсию в корзину ПЕРЕД запросом контакта
+    data = await state.get_data()
+    excursion_id = data.get("selected_excursion_id")
+    people_count = data.get("excursion_people_count", 1)
+
+    excursion = await get_data_loader().get_excursion_by_id(excursion_id)
+
+    if not excursion:
+        await callback.answer("❌ Экскурсия не найдена", show_alert=True)
+        return
+
+    # Добавляем в заказ
+    updated_data = order_manager.add_excursion(data, excursion, people_count)
+    await state.update_data(order=updated_data["order"])
+
     await callback.message.edit_text(
         "Для бронирования поделитесь своими контактными данными.\n\nНаш менеджер свяжется с вами для подтверждения.",
         reply_markup=get_share_contact_keyboard()
@@ -1422,13 +1443,17 @@ async def book_excursion_now(callback: CallbackQuery, state: FSMContext):
 @router.message(UserStates.SHARE_CONTACT, F.text)
 async def process_excursion_phone(message: Message, state: FSMContext):
     """Обработка номера телефона для экскурсий"""
-    await contact_handler.process_text_phone(message, state)
+    if await contact_handler.process_text_phone(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 @router.message(UserStates.SHARE_CONTACT, F.contact)
 async def process_excursion_contact(message: Message, state: FSMContext):
     """Обработка контакта для экскурсий"""
-    await contact_handler.process_contact(message, state)
+    if await contact_handler.process_contact(message, state):
+        from handlers.order import finalize_order
+        await finalize_order(message, state)
 
 
 # ========== Навигация назад ==========

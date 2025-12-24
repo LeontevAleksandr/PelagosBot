@@ -83,37 +83,63 @@ class FrontendConnector:
 
         try:
             # Шаг 1: Подготовка данных заказа
-            logger.info("📋 Шаг 1: Подготовка данных заказа")
+            logger.info("�� Шаг 1: Подготовка данных заказа")
             order_data = order_api_adapter.prepare_order_data(state_data)
             logger.info(f"   Клиент: {order_data['client_name']}")
             logger.info(f"   Агент: {order_data['agent_name']}")
 
-            # Шаг 2: Создание заказа
-            logger.info("📤 Шаг 2: Создание заказа в Pelagos")
-            create_response = await self.order_api.create_order(
-                client_name=order_data["client_name"],
-                agent_name=order_data["agent_name"],
-                group_members=order_data.get("group_members", ""),
-                flight_info=order_data.get("flight_info", "")
-            )
+            # Шаг 2: Проверка существующего заказа или создание нового
+            existing_order_id = state_data.get("current_order_id")
+            order_id = None
 
-            if not create_response or create_response.get("code") != "OK":
-                error_msg = f"Не удалось создать заказ: {create_response}"
-                logger.error(f"❌ {error_msg}")
-                result["message"] = "Ошибка создания заказа"
-                result["errors"].append(error_msg)
-                return result
+            if existing_order_id:
+                # Проверяем статус существующего заказа
+                logger.info(f"🔍 Найден существующий заказ #{existing_order_id}, проверяем статус...")
+                order_info = await self.order_api.load_order(existing_order_id)
 
-            order_id = create_response.get("order_id")
+                if order_info and order_info.get("code") == "OK":
+                    order_status = order_info.get("order", {}).get("status", 999)
+                    logger.info(f"   Статус заказа: {order_status}")
+
+                    # Статусы: 0 = Черновик, 10 = Отправлен, 20 = Получен
+                    # Можем редактировать заказ если статус <= 20
+                    if order_status <= 20:
+                        order_id = existing_order_id
+                        logger.info(f"✅ Используем существующий заказ #{order_id} (статус {order_status})")
+                    else:
+                        logger.info(f"⚠️ Заказ #{existing_order_id} имеет статус {order_status}, создаём новый")
+                else:
+                    logger.warning(f"⚠️ Не удалось загрузить заказ #{existing_order_id}, создаём новый")
+
             if not order_id:
-                error_msg = "API не вернул order_id"
-                logger.error(f"❌ {error_msg}")
-                result["message"] = "Ошибка получения ID заказа"
-                result["errors"].append(error_msg)
-                return result
+                # Создаём новый заказ
+                logger.info("📤 Шаг 2: Создание нового заказа в Pelagos")
+                create_response = await self.order_api.create_order(
+                    client_name=order_data["client_name"],
+                    agent_name=order_data["agent_name"],
+                    names=order_data.get("names", ""),
+                    descr=order_data.get("descr", ""),
+                    tourist_phone=order_data.get("tourist_phone", "")
+                )
+
+                if not create_response or create_response.get("code") != "OK":
+                    error_msg = f"Не удалось создать заказ: {create_response}"
+                    logger.error(f"❌ {error_msg}")
+                    result["message"] = "Ошибка создания заказа"
+                    result["errors"].append(error_msg)
+                    return result
+
+                order_id = create_response.get("order_id")
+                if not order_id:
+                    error_msg = "API не вернул order_id"
+                    logger.error(f"❌ {error_msg}")
+                    result["message"] = "Ошибка получения ID заказа"
+                    result["errors"].append(error_msg)
+                    return result
+
+                logger.info(f"✅ Новый заказ создан успешно. ID: {order_id}")
 
             result["order_id"] = order_id
-            logger.info(f"✅ Заказ создан успешно. ID: {order_id}")
 
             # Шаг 3: Преобразование элементов корзины в пункты заказа
             logger.info(f"📋 Шаг 3: Преобразование {len(order_items)} элементов корзины")
@@ -239,8 +265,9 @@ class FrontendConnector:
         order_id: int,
         client_name: str = None,
         agent_name: str = None,
-        group_members: str = None,
-        flight_info: str = None
+        names: str = None,
+        descr: str = None,
+        tourist_phone: str = None
     ) -> bool:
         """
         Обновить информацию о заказе
@@ -249,8 +276,9 @@ class FrontendConnector:
             order_id: ID заказа
             client_name: Имя клиента
             agent_name: Имя агента
-            group_members: Список членов группы
-            flight_info: Информация о полете
+            names: Имена туристов
+            descr: Описание заказа
+            tourist_phone: Номер телефона туриста
 
         Returns:
             True если обновление успешно
@@ -262,8 +290,9 @@ class FrontendConnector:
                 order_id=order_id,
                 client_name=client_name,
                 agent_name=agent_name,
-                group_members=group_members,
-                flight_info=flight_info
+                names=names,
+                descr=descr,
+                tourist_phone=tourist_phone
             )
 
             if update_response and update_response.get("code") == "OK":

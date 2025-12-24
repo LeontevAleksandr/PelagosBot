@@ -23,7 +23,8 @@ class OrderManager:
             "details": f"{nights} ноч.",
             "price_usd": total_price,
             # Дополнительные данные для API
-            "service_id": room.get("id", 0),
+            "hotel_id": int(hotel.get("id", 0)),  # ID отеля (обязательно для API)
+            "service_id": room.get("id", 0),  # ID номера (object_id для API)
             "check_in": check_in,
             "check_out": check_out,
             "quantity": 1,
@@ -60,8 +61,10 @@ class OrderManager:
             "details": details,
             "price_usd": total_price,
             # Дополнительные данные для API
-            "service_id": int(excursion.get("service_id", 0)) if excursion.get("service_id") else 0,
-            "date": excursion.get("date"),  # Дата экскурсии
+            "service_id": int(excursion.get("id", 0)),  # ID экскурсии (используется как object_id в API)
+            "date": excursion.get("date"),  # Дата экскурсии (YYYY-MM-DD)
+            "time": excursion.get("time"),  # Время начала (HH:MM)
+            "duration": excursion.get("duration"),  # Продолжительность в минутах
             "people_count": people_count
         })
 

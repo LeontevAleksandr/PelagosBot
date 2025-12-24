@@ -1,7 +1,7 @@
 """Адаптер для преобразования данных бота в формат Order API"""
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +11,40 @@ class OrderAPIAdapter:
     Класс для преобразования данных из состояния бота в формат,
     понятный для Order API Pelagos
     """
+
+    @staticmethod
+    def format_datetime(date_str: str) -> str:
+        """
+        Преобразовать дату из формата бота в формат API "DD.MM.YYYY HH:MM"
+
+        Args:
+            date_str: Дата в формате YYYY-MM-DD или DD.MM.YYYY
+
+        Returns:
+            Дата в формате "DD.MM.YYYY HH:MM"
+        """
+        if not date_str:
+            return ""
+
+        try:
+            # Если уже в формате DD.MM.YYYY, просто добавляем время
+            if "." in date_str and not " " in date_str:
+                return f"{date_str} 00:00"
+
+            # Если уже с временем, возвращаем как есть
+            if " " in date_str:
+                return date_str
+
+            # Если в формате YYYY-MM-DD, конвертируем
+            if "-" in date_str:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                return dt.strftime("%d.%m.%Y 00:00")
+
+            return date_str
+
+        except Exception as e:
+            logger.error(f"Ошибка форматирования даты {date_str}: {e}")
+            return date_str
 
     @staticmethod
     def prepare_order_data(state_data: dict) -> Dict[str, Any]:
@@ -27,9 +61,7 @@ class OrderAPIAdapter:
         user_phone = state_data.get("user_phone", "")
 
         # Формируем имя клиента
-        client_name = f"{user_name}"
-        if user_phone:
-            client_name += f" ({user_phone})"
+        client_name = user_name if user_name else "Клиент из бота"
 
         # Имя агента (бот)
         agent_name = "Pelagos Bot"
@@ -37,8 +69,9 @@ class OrderAPIAdapter:
         return {
             "client_name": client_name,
             "agent_name": agent_name,
-            "group_members": "",  # Будет заполнено при добавлении пунктов
-            "flight_info": ""  # Будет заполнено при необходимости
+            "names": "",  # Имена туристов
+            "descr": "",  # Описание заказа
+            "tourist_phone": user_phone  # Номер телефона туриста
         }
 
     @staticmethod
@@ -54,27 +87,33 @@ class OrderAPIAdapter:
             state_data: данные из FSM состояния
 
         Returns:
-            dict с параметрами для add_order_part
+            dict с параметрами для add_order_part в новом формате API
         """
+        user_name = state_data.get("user_name", "")
+        user_phone = state_data.get("user_phone", "")
+
         # Извлекаем данные из hotel_item
-        # Формат: {"type": "hotel", "name": "Hotel - Room", "details": "5 ноч.", "price_usd": 500}
+        check_in = hotel_item.get("check_in", "")
+        check_out = hotel_item.get("check_out", "")
+        hotel_id = hotel_item.get("hotel_id", 0)
+        room_id = hotel_item.get("service_id", 0)  # object_id это ID номера
+        quantity = hotel_item.get("quantity", 1)
 
-        # Для полной интеграции нужно сохранять больше данных при добавлении в корзину
-        # Пока возвращаем базовую структуру
-
-        logger.warning("⚠️ Преобразование отелей требует расширения данных в корзине")
+        # Форматируем даты в "DD.MM.YYYY HH:MM"
+        stime = OrderAPIAdapter.format_datetime(check_in)
+        etime = OrderAPIAdapter.format_datetime(check_out)
 
         return {
-            "service_id": hotel_item.get("service_id", 0),
-            "check_in": hotel_item.get("check_in"),
-            "check_out": hotel_item.get("check_out"),
-            "quantity": hotel_item.get("quantity", 1),
-            "adults": hotel_item.get("adults", 2),
-            "children_with_bed": hotel_item.get("children_with_bed", 0),
-            "children_without_bed": hotel_item.get("children_without_bed", 0),
-            "extra_price": 0,
-            "rooming_list": state_data.get("user_name", ""),
-            "hotel_comment": f"Заказ через Telegram бот. Телефон: {state_data.get('user_phone', '')}"
+            "client_name": user_name,
+            "agent_name": "Pelagos Bot",
+            "names": "",
+            "descr": f"Бронирование через Telegram бот",
+            "tab": "hotel",
+            "hotel_id": hotel_id,
+            "stime": stime,
+            "etime": etime,
+            "object_id": room_id,
+            "multi": str(quantity)
         }
 
     @staticmethod
@@ -90,37 +129,62 @@ class OrderAPIAdapter:
             state_data: данные из FSM состояния
 
         Returns:
-            dict с параметрами для add_order_part
+            dict с параметрами для add_order_part в новом формате API
         """
-        # Извлекаем количество человек из details
-        # Формат details: "3 чел." или ""
-        details = excursion_item.get("details", "")
-        people_count = 1
+        # Извлекаем количество человек
+        people_count = excursion_item.get("people_count", 1)
 
-        if "чел." in details:
+        # ID экскурсии (используется как object_id)
+        excursion_id = excursion_item.get("service_id", 0)
+
+        # Формируем stime и etime из даты, времени и продолжительности
+        excursion_date = excursion_item.get("date", "")  # YYYY-MM-DD
+        excursion_time = excursion_item.get("time", "00:00")  # HH:MM
+        duration_minutes = excursion_item.get("duration", 180)  # По умолчанию 3 часа
+
+        stime = ""
+        etime = ""
+
+        if excursion_date:
             try:
-                people_count = int(details.split()[0])
-            except (ValueError, IndexError):
-                people_count = 1
+                # Формируем datetime начала экскурсии
+                date_time_str = f"{excursion_date} {excursion_time or '00:00'}"
+                dt_start = datetime.strptime(date_time_str, "%Y-%m-%d %H:%M")
 
-        # ID сервиса экскурсии
-        service_id = excursion_item.get("service_id", 0)
+                # Формируем stime в формате "DD.MM.YYYY HH:MM"
+                stime = dt_start.strftime("%d.%m.%Y %H:%M")
 
-        # Дата экскурсии (если есть)
-        excursion_date = excursion_item.get("date")
+                # Вычисляем etime: начало + продолжительность
+                if duration_minutes and duration_minutes > 0:
+                    dt_end = dt_start + timedelta(minutes=duration_minutes)
+                else:
+                    # Если продолжительность не указана, добавляем 3 часа
+                    dt_end = dt_start + timedelta(hours=3)
 
-        return {
-            "service_id": service_id,
-            "check_in": excursion_date,  # Для экскурсий это дата проведения
-            "check_out": excursion_date,  # Совпадает с check_in для экскурсий
-            "quantity": 1,  # Всегда 1 экскурсия
-            "adults": people_count,  # Количество человек
-            "children_with_bed": 0,
-            "children_without_bed": 0,
-            "extra_price": 0,
-            "rooming_list": state_data.get("user_name", ""),
-            "hotel_comment": f"Экскурсия для {people_count} чел. Телефон: {state_data.get('user_phone', '')}"
+                etime = dt_end.strftime("%d.%m.%Y %H:%M")
+
+            except Exception as e:
+                logger.error(f"Ошибка форматирования времени для экскурсии: {e}")
+                # Fallback: используем только дату с временем 00:00 и +3 часа
+                stime = OrderAPIAdapter.format_datetime(excursion_date)
+                try:
+                    dt = datetime.strptime(excursion_date, "%Y-%m-%d")
+                    dt_end = dt + timedelta(hours=3)
+                    etime = dt_end.strftime("%d.%m.%Y %H:%M")
+                except:
+                    etime = stime
+
+        result = {
+            "tab": "transfer",
+            "object_id": excursion_id,
+            "adults": str(people_count)
         }
+
+        # Добавляем только stime (без etime, чтобы избежать ошибки part_reverse_times)
+        if stime:
+            result["stime"] = stime
+
+        return result
 
     @staticmethod
     def convert_transfer_item_to_part(
@@ -135,8 +199,10 @@ class OrderAPIAdapter:
             state_data: данные из FSM состояния
 
         Returns:
-            dict с параметрами для add_order_part
+            dict с параметрами для add_order_part в новом формате API
         """
+        user_name = state_data.get("user_name", "")
+
         # Извлекаем количество человек из details
         details = transfer_item.get("details", "")
         people_count = 1
@@ -147,18 +213,34 @@ class OrderAPIAdapter:
             except (ValueError, IndexError):
                 people_count = 1
 
-        service_id = transfer_item.get("service_id", 0)
+        # ID трансфера
+        transfer_id = transfer_item.get("service_id", 0)
+
+        # Дата трансфера
+        transfer_date = transfer_item.get("date", "")
+        stime = OrderAPIAdapter.format_datetime(transfer_date)
+        etime = stime  # Для трансферов совпадает
+
+        # hotel_id может быть передан если есть
+        hotel_id = transfer_item.get("hotel_id", 0)
+
+        # Информация о рейсе если есть
+        flight_info = transfer_item.get("flight_info", "")
+        descr = f"Трансфер для {people_count} чел. через Telegram бот"
+        if flight_info:
+            descr += f". Рейс: {flight_info}"
 
         return {
-            "service_id": service_id,
-            "quantity": 1,
-            "adults": people_count,
-            "children_with_bed": 0,
-            "children_without_bed": 0,
-            "extra_price": 0,
-            "transfer_request": "Запрос через Telegram бот",
-            "flight_info": transfer_item.get("flight_info", ""),
-            "hotel_comment": f"Трансфер для {people_count} чел. Телефон: {state_data.get('user_phone', '')}"
+            "client_name": user_name,
+            "agent_name": "Pelagos Bot",
+            "names": "",
+            "descr": descr,
+            "tab": "transfer",
+            "hotel_id": hotel_id,
+            "stime": stime,
+            "etime": etime,
+            "object_id": transfer_id,
+            "multi": str(people_count)
         }
 
     @staticmethod
@@ -174,19 +256,36 @@ class OrderAPIAdapter:
             state_data: данные из FSM состояния
 
         Returns:
-            dict с параметрами для add_order_part
+            dict с параметрами для add_order_part в новом формате API
         """
-        service_id = package_item.get("service_id", 0)
+        user_name = state_data.get("user_name", "")
+
+        # ID пакетного тура
+        package_id = package_item.get("service_id", 0)
+
+        # Даты пакетного тура
+        start_date = package_item.get("start_date", "")
+        end_date = package_item.get("end_date", "")
+        stime = OrderAPIAdapter.format_datetime(start_date)
+        etime = OrderAPIAdapter.format_datetime(end_date)
+
+        # hotel_id может быть передан если есть
+        hotel_id = package_item.get("hotel_id", 0)
+
+        # Количество человек
+        adults = package_item.get("adults", 2)
 
         return {
-            "service_id": service_id,
-            "quantity": 1,
-            "adults": package_item.get("adults", 2),
-            "children_with_bed": 0,
-            "children_without_bed": 0,
-            "extra_price": 0,
-            "rooming_list": state_data.get("user_name", ""),
-            "hotel_comment": f"Пакетный тур. Телефон: {state_data.get('user_phone', '')}"
+            "client_name": user_name,
+            "agent_name": "Pelagos Bot",
+            "names": "",
+            "descr": f"Пакетный тур через Telegram бот",
+            "tab": "package",
+            "hotel_id": hotel_id,
+            "stime": stime,
+            "etime": etime,
+            "object_id": package_id,
+            "multi": str(adults)
         }
 
     @staticmethod
@@ -229,30 +328,6 @@ class OrderAPIAdapter:
                 continue
 
         return parts
-
-    @staticmethod
-    def enrich_order_item_with_api_data(
-        item: dict,
-        service_id: int,
-        additional_data: dict = None
-    ) -> dict:
-        """
-        Обогатить элемент корзины дополнительными данными для API
-
-        Args:
-            item: элемент корзины
-            service_id: ID сервиса из API
-            additional_data: дополнительные данные (даты, количество и т.д.)
-
-        Returns:
-            обогащенный элемент корзины
-        """
-        item["service_id"] = service_id
-
-        if additional_data:
-            item.update(additional_data)
-
-        return item
 
 
 # Глобальный экземпляр

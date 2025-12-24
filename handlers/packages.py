@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from datetime import datetime
+from config import COMPANY_LINKS
 
 from states.user_states import UserStates
 from keyboards import get_share_contact_keyboard, get_back_to_main_keyboard
@@ -20,26 +21,31 @@ from utils.order_manager import order_manager
 router = Router()
 
 
-# ========== Старт флоу пакетных туров ==========
+# ========== Старт флоу пакетных туров (ЗАГЛУШКА) ==========
 
 @router.callback_query(F.data == "main:packages")
 async def start_packages_flow(callback: CallbackQuery, state: FSMContext):
-    """Начало флоу пакетных туров"""
+    """Начало флоу пакетных туров - заглушка с перенаправлением на сайт"""
     await callback.answer()
 
     data = await state.get_data()
     user_name = data.get("user_name", "Друг")
 
-    # Показываем календарь для выбора даты
-    now = datetime.now()
-    calendar = get_calendar_keyboard(now.year, now.month, back_callback="packages:back_from_calendar")
+    # Показываем заглушку с кнопкой перехода на сайт
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌐 Посетить сайт", url=COMPANY_LINKS["packages"])],
+        [InlineKeyboardButton(text="💬 Связаться с менеджером", url=COMPANY_LINKS["support"])],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ])
 
     await callback.message.edit_text(
-        get_packages_intro_text(user_name) + "\n\nВыберите желаемую дату начала тура:",
-        reply_markup=calendar
+        f"🏝 <b>Пакетные туры</b>\n\n"
+        f"{user_name}, раздел с пакетными турами находится в разработке!\n\n"
+        f"🌟 Чтобы ознакомиться с актуальными предложениями по пакетным турам, "
+        f"пожалуйста, посетите наш сайт или свяжитесь с менеджером.\n\n"
+        f"Мы работаем над тем, чтобы скоро вы могли бронировать туры прямо в боте! 🚀",
+        reply_markup=keyboard
     )
-
-    await state.set_state(UserStates.PACKAGE_TOURS_SELECT_DATE)
 
 
 # ========== Выбор даты ==========
