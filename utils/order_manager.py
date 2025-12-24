@@ -11,7 +11,7 @@ class OrderManager:
         return state_data.get("order", [])
 
     @staticmethod
-    def add_hotel(state_data: dict, hotel: dict, room: dict, nights: int) -> dict:
+    def add_hotel(state_data: dict, hotel: dict, room: dict, nights: int, check_in: str = None, check_out: str = None) -> dict:
         """Добавить отель в заказ"""
         order = state_data.get("order", [])
 
@@ -21,7 +21,15 @@ class OrderManager:
             "type": "hotel",
             "name": f"{hotel['name']} - {room['name']}",
             "details": f"{nights} ноч.",
-            "price_usd": total_price
+            "price_usd": total_price,
+            # Дополнительные данные для API
+            "service_id": room.get("id", 0),
+            "check_in": check_in,
+            "check_out": check_out,
+            "quantity": 1,
+            "adults": 2,  # По умолчанию 2 взрослых
+            "children_with_bed": 0,
+            "children_without_bed": 0
         })
 
         state_data["order"] = order
@@ -50,7 +58,11 @@ class OrderManager:
             "type": "excursion",
             "name": excursion["name"],
             "details": details,
-            "price_usd": total_price
+            "price_usd": total_price,
+            # Дополнительные данные для API
+            "service_id": int(excursion.get("service_id", 0)) if excursion.get("service_id") else 0,
+            "date": excursion.get("date"),  # Дата экскурсии
+            "people_count": people_count
         })
 
         state_data["order"] = order
@@ -65,7 +77,10 @@ class OrderManager:
             "type": "package",
             "name": package["name"],
             "details": f"{package['duration']} дней",
-            "price_usd": package["price_usd"]
+            "price_usd": package["price_usd"],
+            # Дополнительные данные для API
+            "service_id": package.get("id", 0),
+            "adults": package.get("adults", 2)
         })
 
         state_data["order"] = order
@@ -82,7 +97,11 @@ class OrderManager:
             "type": "transfer",
             "name": transfer["name"],
             "details": f"{people_count} чел.",
-            "price_usd": total_price
+            "price_usd": total_price,
+            # Дополнительные данные для API
+            "service_id": transfer.get("id", 0),
+            "people_count": people_count,
+            "flight_info": ""  # Будет заполнено при необходимости
         })
 
         state_data["order"] = order
