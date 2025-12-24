@@ -58,13 +58,9 @@ async def use_saved_phone_global(callback: CallbackQuery, state: FSMContext):
     # Сохраняем как текущий номер для заказа
     await state.update_data(phone_number=saved_phone)
 
-    # Показываем подтверждение
-    await callback.message.edit_text(
-        CONTACT_RECEIVED,
-        reply_markup=get_back_to_main_keyboard()
-    )
-
-    await state.set_state(UserStates.MAIN_MENU)
+    # ВАЖНО: Финализируем заказ (отправляем в API)
+    from handlers.order import finalize_order
+    await finalize_order(callback.message, state)
 
 
 @router.callback_query(F.data == "phone:enter_new")
