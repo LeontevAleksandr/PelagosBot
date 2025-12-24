@@ -84,13 +84,23 @@ async def get_excursion_photo(excursion_id: str):
     Получить фото экскурсии.
     В будущем заменить на запрос к БД.
     """
+    import logging
     from utils.data_loader import get_data_loader
+
+    logger = logging.getLogger(__name__)
 
     excursion = await get_data_loader().get_excursion_by_id(excursion_id)
     if not excursion:
+        logger.warning(f"Excursion {excursion_id} not found")
         return None
 
     photo_path = excursion.get("photo")
+    logger.info(f"Excursion {excursion_id} photo path: {photo_path}")
+
+    if not photo_path:
+        logger.warning(f"No photo path for excursion {excursion_id}")
+        return None
+
     return await media_manager.get_photo(photo_path)
 
 

@@ -51,10 +51,17 @@ class ExcursionsLoader:
     def _build_photo_url(self, pic: dict) -> Optional[str]:
         """Построить URL фото из объекта pic"""
         if not pic or not isinstance(pic, dict):
+            logger.debug(f"Photo pic is empty or not dict: {pic}")
             return None
         md5 = pic.get('md5')
         ext = pic.get('ext')
-        return f"https://ru.pelagos.ru/pic/{md5}/{md5}.{ext}" if md5 and ext else None
+        if md5 and ext:
+            photo_url = f"https://ru.pelagos.ru/pic/{md5}/{md5}.{ext}"
+            logger.debug(f"Built photo URL: {photo_url}")
+            return photo_url
+        else:
+            logger.debug(f"Missing md5 or ext in pic: md5={md5}, ext={ext}")
+            return None
 
     def _extract_price_list(self, rlst: list) -> Dict[int, float]:
         """Извлечь список цен для разного количества человек из rlst"""
@@ -142,7 +149,9 @@ class ExcursionsLoader:
         island, island_name = self._get_island_info(location)
 
         # Фото
-        photo_url = self._build_photo_url(getattr(service, 'pic', None))
+        pic = getattr(service, 'pic', None)
+        logger.debug(f"Group excursion event {event.id}, service {event.service_id}: pic = {pic}")
+        photo_url = self._build_photo_url(pic)
 
         # Описание
         html = getattr(service, 'html', '')

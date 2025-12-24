@@ -12,14 +12,13 @@ from keyboards import (
 )
 from states.user_states import UserStates
 from utils.texts import (
-    MENU_TEXT, 
-    MY_ORDERS_TEXT, 
+    MENU_TEXT,
+    MY_ORDERS_TEXT,
     MY_ORDERS_EMPTY,
-    get_main_menu_text
+    get_main_menu_text,
+    CONTACT_RECEIVED
 )
-from database.db_crud import get_orders_for_user
 from utils.contact_handler import contact_handler
-from utils.texts import CONTACT_RECEIVED
 
 router = Router()
 

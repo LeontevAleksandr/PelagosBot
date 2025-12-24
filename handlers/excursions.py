@@ -1306,18 +1306,21 @@ async def select_date_for_companion(callback: CallbackQuery, state: FSMContext):
         excursion_people_count=people_count
     )
 
-    # Запрашиваем контакт для создания заявки
-    await callback.message.edit_text(
+    # ВАЖНО: Добавляем экскурсию в корзину ПЕРЕД запросом контакта
+    updated_data = order_manager.add_excursion(data, excursion, people_count)
+    await state.update_data(order=updated_data["order"])
+
+    # Используем contact_handler для проверки сохранённого номера
+    contact_text = (
         f"Отлично! Вы создаете заявку на поиск попутчиков:\n\n"
         f"**{excursion['name']}**\n"
         f"📅 Дата: {format_date(date)}\n"
         f"👥 Количество человек: {people_count}\n\n"
         f"Для создания заявки поделитесь своими контактными данными.\n\n"
-        f"Наш менеджер свяжется с вами для подтверждения.",
-        reply_markup=get_share_contact_keyboard(),
-        parse_mode="Markdown"
+        f"Наш менеджер свяжется с вами для подтверждения."
     )
 
+    await contact_handler.request_phone(callback.message, state, contact_text)
     await state.set_state(UserStates.SHARE_CONTACT)
 
 
