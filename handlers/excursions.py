@@ -315,11 +315,18 @@ async def send_private_excursions_cards_page(message: Message, state: FSMContext
     def format_card(excursion):
         return get_private_excursion_card_text(excursion, people_count, expanded=False)
 
-    # Функция создания клавиатуры
+    # Функция создания клавиатуры с кнопками развернуть/свернуть и ссылкой
     def get_keyboard(excursion):
         buttons = [
             [InlineKeyboardButton(text="✅ Забронировать", callback_data=f"exc_book:{excursion['id']}")],
+            [InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_private_expand_page:{excursion['id']}:{page}")],
         ]
+
+        # Добавляем кнопку "Смотреть экскурсию" если есть URL
+        excursion_url = excursion.get("url")
+        if excursion_url:
+            buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", url=excursion_url)])
+
         return InlineKeyboardMarkup(inline_keyboard=buttons)
 
     # Функция получения фото
@@ -354,14 +361,30 @@ async def show_all_group_excursions(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Экскурсии не найдены", show_alert=True)
         return
 
-    # Удаляем текущее сообщение
+    # Удаляем текущее сообщение (может быть с фото)
     try:
         await callback.message.delete()
     except:
         pass
 
-    # Отправляем первую страницу
-    await send_excursions_cards_page(callback.message, state, page=1)
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.answer("⏳ Загружаю экскурсии...")
+
+    try:
+        # Отправляем первую страницу
+        await send_excursions_cards_page(callback.message, state, page=1)
+
+        # Удаляем сообщение о загрузке
+        try:
+            await loading_msg.delete()
+        except:
+            pass
+    except Exception as e:
+        logger.error(f"Ошибка при отображении экскурсий: {e}")
+        await loading_msg.edit_text(
+            "😔 Произошла ошибка при загрузке экскурсий.",
+            reply_markup=get_back_to_main_keyboard()
+        )
 
 
 @router.callback_query(F.data.startswith("exc_cards_page:"))
@@ -563,7 +586,7 @@ async def view_group_month_excursion(callback: CallbackQuery, state: FSMContext)
 
 @router.callback_query(F.data.startswith("exc_join:"))
 async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
-    """Присоединиться к групповой экскурсии"""
+    """Присоединиться к групповой экскурсии - запрашиваем количество людей"""
     await callback.answer()
 
     excursion_id = callback.data.split(":")[1]
@@ -572,18 +595,68 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
     if not excursion:
         return
 
-    # ВАЖНО: Сохраняем дату экскурсии для последующего добавления в заказ
+    # Сохраняем ID и дату экскурсии
     excursion_date = excursion.get("date")
     await state.update_data(
         selected_excursion_id=excursion_id,
-        excursion_people_count=1,
         excursion_date=excursion_date
     )
 
-    # Используем универсальную клавиатуру
+    # Запрашиваем количество человек
+    await callback.message.answer(
+        "Сколько человек будет участвовать в экскурсии?",
+        reply_markup=get_back_to_main_keyboard()
+    )
+
+    await state.set_state(UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE)
+
+
+@router.message(UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE, F.text)
+async def process_group_people_count(message: Message, state: FSMContext):
+    """Обработка количества людей для групповой экскурсии"""
+    user_input = message.text.strip()
+
+    # Проверяем, что введено число
+    if not user_input.isdigit():
+        await message.answer(
+            "❌ Пожалуйста, введите число (количество человек).",
+            reply_markup=get_back_to_main_keyboard()
+        )
+        return
+
+    people_count = int(user_input)
+
+    # Проверяем, что число >= 1
+    if people_count < 1:
+        await message.answer(
+            "❌ Количество человек должно быть не менее 1.",
+            reply_markup=get_back_to_main_keyboard()
+        )
+        return
+
+    # Удаляем сообщение пользователя
+    try:
+        await message.delete()
+    except:
+        pass
+
+    # КРИТИЧНО: Сохраняем количество людей в excursion_people_count
+    # Это поле используется в add_excursion_to_order() и book_excursion_now()
+    await state.update_data(excursion_people_count=people_count)
+
+    # Получаем данные экскурсии для отображения
+    data = await state.get_data()
+    excursion_id = data.get("selected_excursion_id")
+    excursion = await get_data_loader().get_excursion_by_id(excursion_id)
+
+    if not excursion:
+        await message.answer("❌ Ошибка: экскурсия не найдена")
+        return
+
+    # Показываем клавиатуру выбора действия
     keyboard = get_action_choice_keyboard("group")
 
-    await callback.message.answer(
+    await message.answer(
         get_excursion_join_text(excursion["name"]),
         reply_markup=keyboard
     )
@@ -822,14 +895,30 @@ async def show_all_private_excursions(callback: CallbackQuery, state: FSMContext
         await callback.answer("Экскурсии не найдены", show_alert=True)
         return
 
-    # Удаляем текущее сообщение
+    # Удаляем текущее сообщение (может быть с фото)
     try:
         await callback.message.delete()
     except:
         pass
 
-    # Отправляем первую страницу
-    await send_private_excursions_cards_page(callback.message, state, page=1)
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.answer("⏳ Загружаю экскурсии...")
+
+    try:
+        # Отправляем первую страницу
+        await send_private_excursions_cards_page(callback.message, state, page=1)
+
+        # Удаляем сообщение о загрузке
+        try:
+            await loading_msg.delete()
+        except:
+            pass
+    except Exception as e:
+        logger.error(f"Ошибка при отображении экскурсий: {e}")
+        await loading_msg.edit_text(
+            "😔 Произошла ошибка при загрузке экскурсий.",
+            reply_markup=get_back_to_main_keyboard()
+        )
 
 
 @router.callback_query(F.data.startswith("exc_private_cards_page:"))
@@ -848,6 +937,120 @@ async def navigate_private_excursions_pages(callback: CallbackQuery, state: FSMC
 
     # Отправляем новую страницу
     await send_private_excursions_cards_page(callback.message, state, page)
+
+
+@router.callback_query(F.data.startswith("exc_private_expand_page:"))
+async def expand_private_excursion_in_page(callback: CallbackQuery, state: FSMContext):
+    """Развернуть описание экскурсии в постраничном выводе"""
+    await callback.answer()
+
+    parts = callback.data.split(":")
+    excursion_id = parts[1]
+    page = int(parts[2])
+
+    data = await state.get_data()
+    excursions = data.get("excursions", [])
+    people_count = data.get("people_count", 1)
+
+    # Находим экскурсию по ID
+    excursion = None
+    for exc in excursions:
+        if exc.get("id") == excursion_id:
+            excursion = exc
+            break
+
+    if not excursion:
+        await callback.answer("❌ Экскурсия не найдена", show_alert=True)
+        return
+
+    # Формируем развернутый текст
+    card_text = get_private_excursion_card_text(excursion, people_count, expanded=True)
+
+    # Создаем клавиатуру с кнопкой "Свернуть"
+    buttons = [
+        [InlineKeyboardButton(text="✅ Забронировать", callback_data=f"exc_book:{excursion['id']}")],
+        [InlineKeyboardButton(text="Свернуть ▲", callback_data=f"exc_private_collapse_page:{excursion['id']}:{page}")],
+    ]
+
+    # Добавляем кнопку "Смотреть экскурсию" если есть URL
+    excursion_url = excursion.get("url")
+    if excursion_url:
+        buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", url=excursion_url)])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Обновляем сообщение
+    try:
+        await callback.message.edit_caption(
+            caption=card_text,
+            reply_markup=keyboard
+        )
+    except:
+        # Если нет фото, пробуем обновить текст
+        try:
+            await callback.message.edit_text(
+                text=card_text,
+                reply_markup=keyboard
+            )
+        except Exception as e:
+            logger.error(f"Ошибка обновления сообщения: {e}")
+
+
+@router.callback_query(F.data.startswith("exc_private_collapse_page:"))
+async def collapse_private_excursion_in_page(callback: CallbackQuery, state: FSMContext):
+    """Свернуть описание экскурсии в постраничном выводе"""
+    await callback.answer()
+
+    parts = callback.data.split(":")
+    excursion_id = parts[1]
+    page = int(parts[2])
+
+    data = await state.get_data()
+    excursions = data.get("excursions", [])
+    people_count = data.get("people_count", 1)
+
+    # Находим экскурсию по ID
+    excursion = None
+    for exc in excursions:
+        if exc.get("id") == excursion_id:
+            excursion = exc
+            break
+
+    if not excursion:
+        await callback.answer("❌ Экскурсия не найдена", show_alert=True)
+        return
+
+    # Формируем свернутый текст
+    card_text = get_private_excursion_card_text(excursion, people_count, expanded=False)
+
+    # Создаем клавиатуру с кнопкой "Развернуть"
+    buttons = [
+        [InlineKeyboardButton(text="✅ Забронировать", callback_data=f"exc_book:{excursion['id']}")],
+        [InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_private_expand_page:{excursion['id']}:{page}")],
+    ]
+
+    # Добавляем кнопку "Смотреть экскурсию" если есть URL
+    excursion_url = excursion.get("url")
+    if excursion_url:
+        buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", url=excursion_url)])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Обновляем сообщение
+    try:
+        await callback.message.edit_caption(
+            caption=card_text,
+            reply_markup=keyboard
+        )
+    except:
+        # Если нет фото, пробуем обновить текст
+        try:
+            await callback.message.edit_text(
+                text=card_text,
+                reply_markup=keyboard
+            )
+        except Exception as e:
+            logger.error(f"Ошибка обновления сообщения: {e}")
 
 
 @router.callback_query(UserStates.EXCURSIONS_SHOW_RESULTS, F.data.startswith("exc_book:"))
@@ -1022,7 +1225,7 @@ async def view_companion_excursion(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("comp_join:"))
 async def join_companion_excursion(callback: CallbackQuery, state: FSMContext):
-    """Присоединиться к экскурсии с попутчиками"""
+    """Присоединиться к экскурсии с попутчиками - запрашиваем количество людей"""
     await callback.answer()
 
     excursion_id = callback.data.split(":")[1]
@@ -1031,12 +1234,61 @@ async def join_companion_excursion(callback: CallbackQuery, state: FSMContext):
     if not excursion:
         return
 
-    await state.update_data(selected_excursion_id=excursion_id, excursion_people_count=1)
+    # Сохраняем ID экскурсии
+    await state.update_data(selected_excursion_id=excursion_id)
 
-    # Используем универсальную клавиатуру
+    # Запрашиваем количество человек
+    await callback.message.answer(
+        "Сколько человек присоединяется к экскурсии?",
+        reply_markup=get_back_to_main_keyboard()
+    )
+
+    await state.set_state(UserStates.COMPANIONS_JOIN_INPUT_PEOPLE)
+
+
+@router.message(UserStates.COMPANIONS_JOIN_INPUT_PEOPLE, F.text)
+async def process_companion_join_people_count(message: Message, state: FSMContext):
+    """Обработка количества людей для присоединения к попутчикам"""
+    user_input = message.text.strip()
+
+    if not user_input.isdigit():
+        await message.answer(
+            "❌ Пожалуйста, введите число (количество человек).",
+            reply_markup=get_back_to_main_keyboard()
+        )
+        return
+
+    people_count = int(user_input)
+
+    if people_count < 1:
+        await message.answer(
+            "❌ Количество человек должно быть не менее 1.",
+            reply_markup=get_back_to_main_keyboard()
+        )
+        return
+
+    # Удаляем сообщение пользователя
+    try:
+        await message.delete()
+    except:
+        pass
+
+    # КРИТИЧНО: Сохраняем количество людей
+    await state.update_data(excursion_people_count=people_count)
+
+    # Получаем данные экскурсии
+    data = await state.get_data()
+    excursion_id = data.get("selected_excursion_id")
+    excursion = await get_data_loader().get_excursion_by_id(excursion_id)
+
+    if not excursion:
+        await message.answer("❌ Ошибка: экскурсия не найдена")
+        return
+
+    # Показываем клавиатуру выбора действия
     keyboard = get_action_choice_keyboard("companion")
 
-    await callback.message.answer(
+    await message.answer(
         get_excursion_join_text(excursion["name"]),
         reply_markup=keyboard
     )
@@ -1190,7 +1442,7 @@ async def navigate_companion_calendar(callback: CallbackQuery):
 
 @router.callback_query(UserStates.COMPANIONS_CREATE_SELECT_DATE, F.data.startswith("date:"))
 async def select_date_for_companion(callback: CallbackQuery, state: FSMContext):
-    """Выбор даты для заявки - запрашиваем контакт"""
+    """Выбор даты для заявки - показываем выбор действия"""
     await callback.answer()
 
     date = callback.data.split(":")[1]
@@ -1205,32 +1457,32 @@ async def select_date_for_companion(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❌ Экскурсия не найдена", show_alert=True)
         return
 
+    # Сохраняем данные в состоянии (для последующего использования)
     await state.update_data(
         companion_date=date,
         excursion_people_count=people_count
     )
 
-    # ВАЖНО: Добавляем экскурсию в корзину ПЕРЕД запросом контакта
-    updated_data = order_manager.add_excursion(data, excursion, people_count)
-    await state.update_data(order=updated_data["order"])
-
-    # Используем contact_handler для проверки сохранённого номера
-    contact_text = (
-        f"Отлично! Вы создаете заявку на поиск попутчиков:\n\n"
-        f"**{excursion['name']}**\n"
+    # Формируем текст с информацией об экскурсии
+    text = (
+        f"**{excursion['name']}**\n\n"
         f"📅 Дата: {format_date(date)}\n"
         f"👥 Количество человек: {people_count}\n\n"
-        f"Для создания заявки поделитесь своими контактными данными.\n\n"
-        f"Наш менеджер свяжется с вами для подтверждения."
+        f"Что хотите сделать?"
     )
 
-    await contact_handler.request_phone(callback.message, state, contact_text)
-    await state.set_state(UserStates.SHARE_CONTACT)
+    # Показываем клавиатуру выбора действия (как для групповых экскурсий)
+    keyboard = get_action_choice_keyboard("create")
+
+    await callback.message.edit_text(
+        text,
+        reply_markup=keyboard
+    )
 
 
 @router.message(UserStates.COMPANIONS_CREATE_INPUT_PEOPLE, F.text)
 async def process_companion_people_count(message: Message, state: FSMContext):
-    """Обработка количества человек для заявки - загружаем и показываем индивидуальные экскурсии"""
+    """Обработка количества человек для заявки - показываем выбор острова"""
     try:
         people_count = int(message.text.strip())
 
@@ -1243,16 +1495,83 @@ async def process_companion_people_count(message: Message, state: FSMContext):
         except:
             pass
 
-        data = await state.get_data()
-        island = data.get("island")
+        # Сохраняем количество людей
+        await state.update_data(people_count=people_count)
 
         # Показываем сообщение о загрузке
-        loading_msg = await message.answer("⏳ Загружаю индивидуальные экскурсии...")
+        loading_msg = await message.answer("⏳ Загружаю доступные острова с экскурсиями...")
 
-        # ИСПРАВЛЕНО: Получаем ТОЛЬКО индивидуальные экскурсии (как в ветке private)
+        try:
+            # Загружаем все острова с подсчётом экскурсий (используем тот же метод что и для private)
+            islands = await get_data_loader().excursions_loader.get_available_islands_with_count()
+
+            if not islands:
+                await loading_msg.edit_text(
+                    "😔 К сожалению, не удалось загрузить список островов с экскурсиями. Попробуйте позже.",
+                    reply_markup=get_back_to_main_keyboard()
+                )
+                return
+
+            # Показываем клавиатуру выбора острова
+            await loading_msg.edit_text(
+                f"**Создание заявки на поиск попутчиков**\n\n"
+                f"Выберите остров для поиска экскурсий:\n"
+                f"_(Всего найдено {len(islands)} островов с экскурсиями)_",
+                reply_markup=get_private_islands_keyboard(islands),
+                parse_mode="Markdown"
+            )
+
+            await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_ISLAND)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки островов для создания заявки на попутчиков: {e}")
+            await loading_msg.edit_text(
+                "😔 Произошла ошибка при загрузке списка островов.",
+                reply_markup=get_back_to_main_keyboard()
+            )
+
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите корректное число",
+            reply_markup=get_back_to_main_keyboard()
+        )
+
+
+@router.callback_query(
+    UserStates.COMPANIONS_CREATE_SELECT_ISLAND,
+    F.data.startswith("private_island:")
+)
+async def select_companion_island(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора острова для создания заявки на попутчиков - загружаем экскурсии"""
+    await callback.answer()
+
+    location_id = int(callback.data.split(":")[1])
+
+    # Сохраняем location_id как island в state
+    await state.update_data(island=str(location_id))
+
+    island = str(location_id)
+
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.edit_text("⏳ Загружаю индивидуальные экскурсии...")
+
+    try:
+        # Получаем ТОЛЬКО индивидуальные экскурсии для выбранного острова
         excursions = await get_data_loader().get_excursions_by_filters(
             island=island,
             excursion_type="private"
+        )
+
+        if not excursions:
+            await loading_msg.edit_text(
+                "😔 К сожалению, индивидуальных экскурсий на этом острове не найдено.",
+                reply_markup=get_back_to_main_keyboard()
+            )
+            return
+
+        await state.update_data(
+            excursions=excursions,
+            current_excursion_index=0
         )
 
         # Удаляем сообщение о загрузке
@@ -1261,27 +1580,15 @@ async def process_companion_people_count(message: Message, state: FSMContext):
         except:
             pass
 
-        if not excursions:
-            await message.answer(
-                "😔 К сожалению, индивидуальных экскурсий не найдено.",
-                reply_markup=get_back_to_main_keyboard()
-            )
-            return
-
-        await state.update_data(
-            people_count=people_count,
-            excursions=excursions,
-            current_excursion_index=0
-        )
-
         # Показываем первую экскурсию (используем функцию из ветки private)
-        await show_private_excursion(message, state, 0)
+        await show_private_excursion(callback.message, state, 0)
 
         await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_EXCURSION)
 
-    except ValueError:
-        await message.answer(
-            "❌ Пожалуйста, введите корректное число",
+    except Exception as e:
+        logger.error(f"❌ Ошибка загрузки экскурсий для острова {island}: {e}")
+        await loading_msg.edit_text(
+            "😔 Произошла ошибка при загрузке экскурсий.",
             reply_markup=get_back_to_main_keyboard()
         )
 

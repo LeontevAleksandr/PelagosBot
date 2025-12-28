@@ -27,20 +27,23 @@ class UserStates(StatesGroup):
     # Экскурсии
     EXCURSIONS_SELECT_TYPE = State()
     EXCURSIONS_GROUP_SELECT_DATE = State()
+    EXCURSIONS_GROUP_INPUT_PEOPLE = State()  # Ввод количества людей для групповых
     EXCURSIONS_PRIVATE_SELECT_ISLAND = State()  # Выбор острова для индивидуальных
     EXCURSIONS_PRIVATE_INPUT_PEOPLE = State()
     EXCURSIONS_PRIVATE_SELECT_DATE = State()
     EXCURSIONS_SHOW_RESULTS = State()
-    
+
     # Поиск попутчиков (будут реализованы позже)
     COMPANIONS_VIEW_LIST = State()
     COMPANIONS_SELECT_MONTH = State()
     COMPANIONS_SELECT_EXCURSION = State()
     COMPANIONS_VIEW_DETAILS = State()
     COMPANIONS_CREATE_INFO = State()
+    COMPANIONS_CREATE_INPUT_PEOPLE = State()
+    COMPANIONS_CREATE_SELECT_ISLAND = State()  # Выбор острова для создания заявки
     COMPANIONS_CREATE_SELECT_EXCURSION = State()
     COMPANIONS_CREATE_SELECT_DATE = State()
-    COMPANIONS_CREATE_INPUT_PEOPLE = State()
+    COMPANIONS_JOIN_INPUT_PEOPLE = State()  # Ввод количества людей для присоединения
     
     # Пакетные туры (будут реализованы позже)
     PACKAGE_TOURS_SELECT_DATE = State()
