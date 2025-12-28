@@ -38,7 +38,8 @@ from .excursions import (
     get_group_excursion_full_keyboard,
     get_action_choice_keyboard,
     get_group_month_excursion_detail_keyboard,
-    get_month_excursions_list_keyboard
+    get_month_excursions_list_keyboard,
+    get_private_islands_keyboard
 )
 
 from .transfers import (
@@ -83,6 +84,7 @@ __all__ = [
     'get_action_choice_keyboard',
     'get_group_month_excursion_detail_keyboard',
     'get_month_excursions_list_keyboard',
+    'get_private_islands_keyboard',
     # Transfers
     'get_transfer_navigation_keyboard',
     'get_transfer_card_simple_keyboard',

@@ -6,9 +6,10 @@ from aiogram.exceptions import TelegramBadRequest
 from handlers.order import view_order
 
 from keyboards import (
-    get_menu_keyboard, 
+    get_menu_keyboard,
     get_main_menu_keyboard,
-    get_back_to_main_keyboard
+    get_back_to_main_keyboard,
+    get_support_keyboard
 )
 from states.user_states import UserStates
 from utils.texts import (
@@ -16,7 +17,8 @@ from utils.texts import (
     MY_ORDERS_TEXT,
     MY_ORDERS_EMPTY,
     get_main_menu_text,
-    CONTACT_RECEIVED
+    CONTACT_RECEIVED,
+    SUPPORT_TEXT
 )
 from utils.contact_handler import contact_handler
 
@@ -27,14 +29,42 @@ router = Router()
 
 @router.message(F.text == "📋 Меню")
 async def show_menu(message: Message):
-    """Показать меню компании"""
+    """Показать дополнительное меню"""
     await message.answer(
         MENU_TEXT,
         reply_markup=get_menu_keyboard()
     )
 
 
+@router.message(F.text == "💬 Поддержка")
+async def show_support(message: Message):
+    """Показать поддержку"""
+    await message.answer(
+        SUPPORT_TEXT,
+        reply_markup=get_support_keyboard()
+    )
+
+
 # ========== Callback handlers ==========
+
+@router.callback_query(F.data == "main:menu")
+async def show_menu_callback(callback: CallbackQuery):
+    """Показать дополнительное меню из inline кнопки"""
+    await callback.answer()
+    await callback.message.edit_text(
+        MENU_TEXT,
+        reply_markup=get_menu_keyboard()
+    )
+
+
+@router.callback_query(F.data == "main:support")
+async def show_support_callback(callback: CallbackQuery):
+    """Показать поддержку из inline кнопки"""
+    await callback.answer()
+    await callback.message.edit_text(
+        SUPPORT_TEXT,
+        reply_markup=get_support_keyboard()
+    )
 
 @router.callback_query(F.data == "menu:orders")
 async def show_my_orders(callback: CallbackQuery, state: FSMContext):
@@ -42,7 +72,7 @@ async def show_my_orders(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     # Перенаправляем на просмотр корзины
-    
+
     await view_order(callback, state)
 
 

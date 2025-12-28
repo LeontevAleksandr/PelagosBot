@@ -1,6 +1,5 @@
 """Обработчики флоу экскурсий"""
 import logging
-import asyncio
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
@@ -10,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 from states.user_states import UserStates
 from keyboards import (
-    get_islands_keyboard,
     get_excursion_type_keyboard,
     get_group_excursion_keyboard,
     get_no_group_excursions_keyboard,
@@ -21,15 +19,14 @@ from keyboards import (
     get_companions_select_excursion_keyboard,
     get_share_contact_keyboard,
     get_back_to_main_keyboard,
-    get_all_locations_keyboard,
     get_group_excursion_full_keyboard,
     get_action_choice_keyboard,
     get_group_month_excursion_detail_keyboard,
-    get_month_excursions_list_keyboard
+    get_month_excursions_list_keyboard,
+    get_private_islands_keyboard
 )
 from handlers.main_menu import show_main_menu
 from utils.texts import (
-    get_excursions_intro_text,
     EXCURSIONS_SELECT_TYPE,
     EXCURSIONS_GROUP_INTRO,
     EXCURSIONS_PRIVATE_INTRO,
@@ -79,83 +76,11 @@ MONTH_NAMES_GENITIVE = [
 
 @router.callback_query(F.data == "main:excursions")
 async def start_excursions_flow(callback: CallbackQuery, state: FSMContext):
-    """Начало флоу экскурсий - выбор острова"""
+    """Начало флоу экскурсий - выбор типа экскурсии"""
     await callback.answer()
 
-    # Очищаем filtered_excursions если они остались от поиска
-    await state.update_data(filtered_excursions=None, search_query=None)
-
-    data = await state.get_data()
-    user_name = data.get("user_name", "Друг")
-
-    await callback.message.edit_text(
-        get_excursions_intro_text(user_name),
-        reply_markup=get_islands_keyboard()
-    )
-
-    await state.set_state(UserStates.EXCURSIONS_SELECT_ISLAND)
-
-
-# ========== Выбор острова ==========
-
-@router.callback_query(UserStates.EXCURSIONS_SELECT_ISLAND, F.data.startswith("island:"))
-async def select_island_for_excursions(callback: CallbackQuery, state: FSMContext):
-    """Выбор острова для экскурсий"""
-    await callback.answer()
-
-    # Очищаем filtered_excursions если они остались от поиска
-    await state.update_data(filtered_excursions=None, search_query=None)
-
-    island_code = callback.data.split(":")[1]
-
-    # ОПТИМИЗАЦИЯ: запускаем предзагрузку индивидуальных экскурсий в фоне (без await!)
-    if island_code != "other":
-        data_loader = get_data_loader()
-        # Создаём задачу в фоне, не ждём её завершения
-        asyncio.create_task(data_loader.excursions_loader.preload_private_excursions(island=island_code))
-
-    if island_code == "other":
-        # Показываем все доступные локации из API
-        loading_msg = await callback.message.edit_text("⏳ Загружаю список всех доступных островов...")
-
-        try:
-            locations = await get_data_loader().get_all_locations()
-
-            if not locations:
-                await loading_msg.edit_text(
-                    "😔 К сожалению, не удалось загрузить список островов. Попробуйте позже.",
-                    reply_markup=get_back_to_main_keyboard()
-                )
-                return
-
-            # Сохраняем список локаций в состоянии
-            await state.update_data(all_locations=locations, locations_page=0)            
-
-            # Находим The Philippines для подсчета островов
-            philippines = next((loc for loc in locations if loc.get('parent') == 0), None)
-            if philippines:
-                islands_count = len([l for l in locations if l.get('parent') == philippines['id']])
-            else:
-                islands_count = len([l for l in locations if l.get('parent') and l.get('parent') != 0])
-
-            await loading_msg.edit_text(
-                f"🏝 **Доступные острова Филиппин** ({islands_count} островов)\n\n"
-                "Выберите остров для поиска экскурсий:",
-                reply_markup=get_all_locations_keyboard(locations, page=0),
-                parse_mode="Markdown"
-            )
-
-            await state.set_state(UserStates.EXCURSIONS_SELECT_OTHER_LOCATION)
-
-        except Exception as e:
-            logger.error(f"❌ Ошибка загрузки локаций для экскурсий: {e}")
-            await loading_msg.edit_text(
-                "😔 Произошла ошибка при загрузке списка островов.",
-                reply_markup=get_back_to_main_keyboard()
-            )
-        return
-
-    await state.update_data(island=island_code)
+    # Очищаем filtered_excursions и island если они остались от предыдущих сессий
+    await state.update_data(filtered_excursions=None, search_query=None, island=None)
 
     await callback.message.edit_text(
         EXCURSIONS_SELECT_TYPE,
@@ -164,63 +89,6 @@ async def select_island_for_excursions(callback: CallbackQuery, state: FSMContex
 
     await state.set_state(UserStates.EXCURSIONS_SELECT_TYPE)
 
-
-# ========== Обработчики для "Других островов" в экскурсиях ==========
-
-@router.callback_query(UserStates.EXCURSIONS_SELECT_OTHER_LOCATION, F.data.startswith("location:"))
-async def select_other_location_for_excursions(callback: CallbackQuery, state: FSMContext):
-    """Выбор локации из полного списка для экскурсий"""
-    await callback.answer()
-
-    location_code = callback.data.split(":")[1]
-
-    # Сохраняем выбранную локацию
-    await state.update_data(island=location_code)
-
-    await callback.message.edit_text(
-        EXCURSIONS_SELECT_TYPE,
-        reply_markup=get_excursion_type_keyboard()
-    )
-
-    await state.set_state(UserStates.EXCURSIONS_SELECT_TYPE)
-
-
-@router.callback_query(UserStates.EXCURSIONS_SELECT_OTHER_LOCATION, F.data.startswith("locations_page:"))
-async def navigate_locations_page_for_excursions(callback: CallbackQuery, state: FSMContext):
-    """Навигация по страницам локаций для экскурсий"""
-    await callback.answer()
-
-    page_data = callback.data.split(":")[1]
-
-    if page_data == "current":
-        return  # Игнорируем клик на текущую страницу
-
-    page = int(page_data)
-
-    # Получаем сохраненные локации
-    data = await state.get_data()
-    locations = data.get('all_locations', [])
-
-    if not locations:
-        await callback.answer("Ошибка: список локаций не найден", show_alert=True)
-        return
-
-    # Обновляем страницу
-    await state.update_data(locations_page=page)
-
-    # Находим The Philippines для подсчета островов
-    philippines = next((loc for loc in locations if loc.get('parent') == 0), None)
-    if philippines:
-        islands_count = len([l for l in locations if l.get('parent') == philippines['id']])
-    else:
-        islands_count = len([l for l in locations if l.get('parent') and l.get('parent') != 0])
-
-    await callback.message.edit_text(
-        f"🏝 **Доступные острова Филиппин** ({islands_count} островов)\n\n"
-        "Выберите остров для поиска экскурсий:",
-        reply_markup=get_all_locations_keyboard(locations, page=page),
-        parse_mode="Markdown"
-    )
 
 
 # ========== ВЕТКА A: Групповые экскурсии ==========
@@ -264,14 +132,13 @@ async def navigate_group_calendar(callback: CallbackQuery):
 async def select_group_date(callback: CallbackQuery, state: FSMContext):
     """Выбор даты для групповых экскурсий"""
     await callback.answer()
-    
+
     date = callback.data.split(":")[1]
-    data = await state.get_data()
-    island = data.get("island")
-    
+
+    # ИЗМЕНЕНО: Групповые экскурсии теперь загружаются БЕЗ фильтра по острову (все острова)
     # Получаем экскурсии на эту дату
     excursions = await get_data_loader().get_excursions_by_filters(
-        island=island,
+        island=None,  # Без фильтра по острову
         excursion_type="group",
         date=date
     )
@@ -397,7 +264,7 @@ async def navigate_group_excursions(callback: CallbackQuery, state: FSMContext):
 
 
 async def send_excursions_cards_page(message: Message, state: FSMContext, page: int):
-    """Отправить страницу с экскурсиями (по 5 штук)"""
+    """Отправ��ть страницу с экскурсиями (по 5 штук)"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
 
@@ -541,15 +408,10 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
     month_str = callback.data.split(":")[1]
     year, month = map(int, month_str.split("-"))
 
-    data = await state.get_data()
-    island = data.get("island")
-
-    # ИСПРАВЛЕНИЕ: Для групповых экскурсий за месяц нужно получить все события
-    # через обычный календарный API, а не через get_companions_by_month,
-    # который фильтрует только индивидуальные (group_ex == 0).
-    # Получаем все групповые экскурсии без фильтрации по дате
+    # ИЗМЕНЕНО: Групповые экскурсии теперь загружаются БЕЗ фильтра по острову (все острова)
+    # Получаем все групповые экскурсии без фильтрации по дате и острову
     all_excursions = await get_data_loader().get_excursions_by_filters(
-        island=island,
+        island=None,  # Без фильтра по острову
         excursion_type="group",
         date=None  # Без даты - получаем весь календарь
     )
@@ -731,9 +593,53 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(UserStates.EXCURSIONS_SELECT_TYPE, F.data == "exc_type:private")
 async def select_private_excursions(callback: CallbackQuery, state: FSMContext):
-    """Выбор индивидуальных экскурсий"""
+    """Выбор индивидуальных экскурсий - показываем выбор острова"""
     await callback.answer()
 
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.edit_text("⏳ Загружаю доступные острова с экскурсиями...")
+
+    try:
+        # Загружаем все острова с подсчётом экскурсий
+        islands = await get_data_loader().excursions_loader.get_available_islands_with_count()
+
+        if not islands:
+            await loading_msg.edit_text(
+                "😔 К сожалению, не удалось загрузить список островов с экскурсиями. Попробуйте позже.",
+                reply_markup=get_back_to_main_keyboard()
+            )
+            return
+
+        # Показываем клавиатуру выбора острова
+        await loading_msg.edit_text(
+            f"**Индивидуальные экскурсии**\n\n"
+            f"Выберите остров для поиска экскурсий:\n"
+            f"_(Всего найдено {len(islands)} островов с экскурсиями)_",
+            reply_markup=get_private_islands_keyboard(islands),
+            parse_mode="Markdown"
+        )
+
+        await state.set_state(UserStates.EXCURSIONS_PRIVATE_SELECT_ISLAND)
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка загрузки островов для индивидуальных экскурсий: {e}")
+        await loading_msg.edit_text(
+            "😔 Произошла ошибка при загрузке списка островов.",
+            reply_markup=get_back_to_main_keyboard()
+        )
+
+
+@router.callback_query(UserStates.EXCURSIONS_PRIVATE_SELECT_ISLAND, F.data.startswith("private_island:"))
+async def select_private_island(callback: CallbackQuery, state: FSMContext):
+    """Выбор острова для индивидуальных экскурсий - запрашиваем количество людей"""
+    await callback.answer()
+
+    location_id = int(callback.data.split(":")[1])
+
+    # Сохраняем location_id как island в state (для совместимости с существующим кодом)
+    await state.update_data(island=str(location_id))
+
+    # Запрашиваем количество человек
     await callback.message.edit_text(
         EXCURSIONS_PRIVATE_INTRO,
         reply_markup=get_back_to_main_keyboard()
@@ -1025,11 +931,9 @@ async def select_companions(callback: CallbackQuery, state: FSMContext):
 
 async def show_companions_list(message: Message, state: FSMContext, year: int, month: int, page: int = 0):
     """Показать список экскурсий с поиском попутчиков"""
-    data = await state.get_data()
-    island = data.get("island")
-
+    # ИЗМЕНЕНО: Попутчики теперь загружаются БЕЗ фильтра по острову (все острова)
     # Получаем экскурсии за месяц
-    excursions = await get_data_loader().get_companions_by_month(island, year, month)
+    excursions = await get_data_loader().get_companions_by_month(None, year, month)
     
     await state.update_data(
         companions_month=month,
@@ -1462,22 +1366,6 @@ async def process_excursion_contact(message: Message, state: FSMContext):
 
 
 # ========== Навигация назад ==========
-
-@router.callback_query(F.data == "excursions:back_to_island")
-async def back_to_island_excursions(callback: CallbackQuery, state: FSMContext):
-    """Назад к выбору острова"""
-    await callback.answer()
-    
-    data = await state.get_data()
-    user_name = data.get("user_name", "Друг")
-    
-    await callback.message.edit_text(
-        get_excursions_intro_text(user_name),
-        reply_markup=get_islands_keyboard()
-    )
-    
-    await state.set_state(UserStates.EXCURSIONS_SELECT_ISLAND)
-
 
 @router.callback_query(F.data == "excursions:back_to_type")
 async def back_to_type_excursions(callback: CallbackQuery, state: FSMContext):

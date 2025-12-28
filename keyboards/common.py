@@ -6,29 +6,39 @@ from config import COMPANY_LINKS
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     """Главное меню выбора услуг"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏨 1. Отели", callback_data="main:hotels")],
-        [InlineKeyboardButton(text="🏝 2. Экскурсии", callback_data="main:excursions")],
-        [InlineKeyboardButton(text="📦 3. Пакетные туры", callback_data="main:packages")],
-        [InlineKeyboardButton(text="🚗 4. Трансферы", callback_data="main:transfers")],
-        [InlineKeyboardButton(text="🛒 Мои заказы", callback_data="menu:orders")],
-        [InlineKeyboardButton(text="👤 Мои данные", callback_data="menu:profile")]
+        [
+            InlineKeyboardButton(text="🏨 Отели", callback_data="main:hotels"),
+            InlineKeyboardButton(text="🏝 Экскурсии", callback_data="main:excursions")
+        ],
+        [
+            InlineKeyboardButton(text="📦 Пакетные туры", callback_data="main:packages"),
+            InlineKeyboardButton(text="🚗 Трансферы", callback_data="main:transfers")
+        ],
+        [
+            InlineKeyboardButton(text="📋 Меню", callback_data="main:menu"),
+            InlineKeyboardButton(text="💬 Поддержка", callback_data="main:support")
+        ]
     ])
     return keyboard
 
 
 def get_menu_keyboard() -> InlineKeyboardMarkup:
-    """Кнопка 'Меню' - показывает подменю"""
+    """Дополнительное меню - показывает заказы, профиль, информацию о компании"""
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📦 Мои заказы", callback_data="menu:orders")],
+        [
+            InlineKeyboardButton(text="🛒 Мои заказы", callback_data="menu:orders"),
+            InlineKeyboardButton(text="👤 Мои данные", callback_data="menu:profile")
+        ],
         [InlineKeyboardButton(text="🏢 О компании", url=COMPANY_LINKS["about"])],
-        [InlineKeyboardButton(text="📞 Контакты", url=COMPANY_LINKS["contacts"])],
+        # [InlineKeyboardButton(text="📞 Контакты", url=COMPANY_LINKS["contacts"])],
         [InlineKeyboardButton(text="⭐ Отзывы", url=COMPANY_LINKS["reviews"])],
         [
             InlineKeyboardButton(text="YouTube", url=COMPANY_LINKS["youtube"]),
+            InlineKeyboardButton(text="Telegram", url=COMPANY_LINKS["telegram"]),
             InlineKeyboardButton(text="RuTube", url=COMPANY_LINKS["rutube"])
         ],
-        [InlineKeyboardButton(text="Instagram", url=COMPANY_LINKS["instagram"])],
-        [InlineKeyboardButton(text="🏠 К выбору услуг", callback_data="back:main")]
+        [InlineKeyboardButton(text="📞 +63 (908) 888-8787", url=COMPANY_LINKS["phone"])],
+        [InlineKeyboardButton(text="🏠 Покажите варианты!", callback_data="back:main")]
     ])
     return keyboard
 

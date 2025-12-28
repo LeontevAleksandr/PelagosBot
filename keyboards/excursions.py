@@ -8,7 +8,7 @@ def get_excursion_type_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="👥 Групповые", callback_data="exc_type:group")],
         [InlineKeyboardButton(text="👤 Индивидуальные", callback_data="exc_type:private")],
         [InlineKeyboardButton(text="🔍 Поиск попутчиков", callback_data="exc_type:companions")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_island")]
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
     ])
     return keyboard
 
@@ -307,8 +307,23 @@ def get_month_excursions_list_keyboard(
 
     # Формируем кнопки для каждой экскурсии на странице
     for exc in excursions:
-        # Текст кнопки: дата + название (обрезаем если длинное)
-        button_text = f"📅 {format_date(exc['date'])} - {exc['name'][:max_name_length]}"
+        # Текст кнопки: дата + остров + название (обрезаем если длинное)
+        island_name = exc.get('island_name', '')
+
+        # Форматируем дату без года для компактности (dd.mm вместо dd.mm.yyyy)
+        try:
+            from datetime import datetime as dt
+            date_obj = dt.strptime(exc['date'], "%Y-%m-%d")
+            date_short = date_obj.strftime("%d.%m")
+        except:
+            date_short = format_date(exc['date'])
+
+        # Формируем текст с учётом острова
+        if island_name:
+            button_text = f"📅 {date_short} - {island_name} - {exc['name'][:max_name_length]}"
+        else:
+            button_text = f"📅 {date_short} - {exc['name'][:max_name_length]}"
+
         if len(exc['name']) > max_name_length:
             button_text += "..."
 
@@ -343,6 +358,44 @@ def get_month_excursions_list_keyboard(
     if show_create_button:
         buttons.append([InlineKeyboardButton(text="➕ Создать свою заявку", callback_data="comp_create:start")])
 
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")])
+    buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_private_islands_keyboard(islands: list) -> InlineKeyboardMarkup:
+    """
+    Клавиатура выбора острова для индивидуальных экскурсий
+
+    Args:
+        islands: список островов [{"location_id": int, "name": str, "count": int}, ...]
+                 уже отсортирован по количеству экскурсий
+    """
+    buttons = []
+
+    # Кнопки островов (по 2 в ряд) с количеством экскурсий
+    for i in range(0, len(islands), 2):
+        row = []
+
+        island1 = islands[i]
+        button_text1 = f"{island1['name']} ({island1['count']})"
+        row.append(InlineKeyboardButton(
+            text=button_text1,
+            callback_data=f"private_island:{island1['location_id']}"
+        ))
+
+        if i + 1 < len(islands):
+            island2 = islands[i + 1]
+            button_text2 = f"{island2['name']} ({island2['count']})"
+            row.append(InlineKeyboardButton(
+                text=button_text2,
+                callback_data=f"private_island:{island2['location_id']}"
+            ))
+
+        buttons.append(row)
+
+    # Кнопки назад
     buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="excursions:back_to_type")])
     buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
 

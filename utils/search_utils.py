@@ -11,6 +11,7 @@ SYNONYMS = {
     "город": ["city", "central", "центр"],
     "романтик": ["romantic", "honeymoon", "медовый месяц"],
     "семья": ["family", "kids", "дети"],
+    "боракай": ["boracay", "боракай", "boracay island"],
 
     # Экскурсии
     "дайвинг": ["diving", "дайв", "dive", "snorkel", "снорклинг"],

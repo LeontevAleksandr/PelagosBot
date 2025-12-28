@@ -15,15 +15,16 @@ COMPANY_LINKS = {
     "conditions_transfer": "https://pelagostours.com/besplatnyj-transfer",
     "conditions_discount": "https://pelagostours.com/skidka-10",
     "support": "https://t.me/pelagos_support",
-    "youtube": "https://youtube.com/@pelagostours",
-    "rutube": "https://rutube.ru/pelagostours",
-    "instagram": "https://instagram.com/pelagostours",
-    "about": "https://pelagostours.com/about",
-    "contacts": "https://pelagostours.com/contacts",
-    "reviews": "https://pelagostours.com/reviews",
+    "youtube": "https://www.youtube.com/@pelagostours",
+    "telegram": "t.me/pelagostravel",
+    "rutube": "https://rutube.ru/channel/26281136/",
+    "phone": "tg://call?phone=+639088888787",
+    "about": "https://www.pelagos.ru/tur-operator-po-filippinam-pelagos-tours/",
+    "contacts": "https://www.pelagos.ru/tur-operator-po-filippinam-pelagos-tours/",
+    "reviews": "t.me/pelagostravel/2467",
     "packages": "https://pelagostours.com/tours"
 }
 
 # Настройки удаления сообщений
 DELETE_TEMP_MESSAGES = True  # Удалять временные сообщения
-KEEP_INFO_MESSAGES = True    # Оставлять информационные блоки
+KEEP_INFO_MESSAGES = False    # Оставлять информационные блоки
