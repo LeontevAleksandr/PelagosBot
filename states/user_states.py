@@ -48,9 +48,9 @@ class UserStates(StatesGroup):
     # Пакетные туры (будут реализованы позже)
     PACKAGE_TOURS_SELECT_DATE = State()
     
-    # Трансферы (будут реализованы позже)
+    # Трансферы
     TRANSFERS_SELECT_ISLAND = State()
-    TRANSFERS_INPUT_PEOPLE = State()
+    TRANSFERS_SELECT_PEOPLE_COUNT = State()
     TRANSFERS_SHOW_RESULTS = State()
     
     # Поиск

@@ -63,7 +63,10 @@ class TransfersLoader:
             return cached_transfers
 
         try:
-            logger.info(f"📡 Запрос трансферов для {island or 'всех островов'} (location_id={location_id})...")
+            if location_id:
+                logger.info(f"📡 Запрос трансферов для {island} (location_id={location_id})...")
+            else:
+                logger.info(f"📡 Запрос всех трансферов (без фильтра по location)...")
 
             # Получаем все трансферы через API
             transfers_objects = await self.api.get_all_transfers(location_id=location_id)

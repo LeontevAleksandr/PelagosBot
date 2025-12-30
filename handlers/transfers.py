@@ -10,7 +10,8 @@ from keyboards import (
     get_back_to_main_keyboard,
     get_transfer_navigation_keyboard,
     get_transfer_card_simple_keyboard,
-    get_transfer_booking_keyboard
+    get_transfer_booking_keyboard,
+    get_transfer_people_count_keyboard
 )
 from utils.texts import (
     get_transfers_intro_text,
@@ -73,27 +74,49 @@ async def select_transfer_island(callback: CallbackQuery, state: FSMContext):
         selected_island=island
     )
 
-    # Показываем первый трансфер с запросом количества людей
+    # Показываем клавиатуру для выбора количества людей
     await loading_msg.edit_text(
-        "Введите количество человек, включая детей после 2х лет:",
-        reply_markup=get_back_to_main_keyboard()
+        "Выберите количество человек, включая детей после 2х лет:",
+        reply_markup=get_transfer_people_count_keyboard()
     )
 
-    await state.set_state(UserStates.TRANSFERS_INPUT_PEOPLE)
+    await state.set_state(UserStates.TRANSFERS_SELECT_PEOPLE_COUNT)
 
 
-# ========== Ввод количества людей ==========
+# ========== Выбор количества людей ==========
 
-@router.message(UserStates.TRANSFERS_INPUT_PEOPLE, F.text)
-async def input_people_count(message: Message, state: FSMContext):
-    """Обработка ввода количества людей"""
+@router.callback_query(UserStates.TRANSFERS_SELECT_PEOPLE_COUNT, F.data.startswith("transfer_people_count:"))
+async def select_people_count(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора количества людей через кнопки"""
+    await callback.answer()
+
+    people_count = int(callback.data.split(":")[1])
+
+    # Сохраняем количество людей
+    await state.update_data(people_count=people_count)
+
+    # Удаляем сообщение с выбором
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    # Показываем список трансферов
+    await show_transfer_card(callback.message, state, 0)
+
+    await state.set_state(UserStates.TRANSFERS_SHOW_RESULTS)
+
+
+@router.message(UserStates.TRANSFERS_SELECT_PEOPLE_COUNT, F.text)
+async def input_people_count_text(message: Message, state: FSMContext):
+    """Обработка текстового ввода количества людей (если пользователь напишет число)"""
     try:
         people_count = int(message.text.strip())
 
         if people_count < 1 or people_count > 50:
             await message.answer(
-                "❌ Пожалуйста, введите корректное количество человек (от 1 до 50):",
-                reply_markup=get_back_to_main_keyboard()
+                "❌ Пожалуйста, выберите количество человек из предложенных вариантов или введите число от 1 до 50:",
+                reply_markup=get_transfer_people_count_keyboard()
             )
             return
 
@@ -113,8 +136,8 @@ async def input_people_count(message: Message, state: FSMContext):
 
     except ValueError:
         await message.answer(
-            "❌ Пожалуйста, введите число:",
-            reply_markup=get_back_to_main_keyboard()
+            "❌ Пожалуйста, выберите количество человек из предложенных вариантов или введите число:",
+            reply_markup=get_transfer_people_count_keyboard()
         )
 
 

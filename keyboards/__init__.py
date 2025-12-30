@@ -45,7 +45,8 @@ from .excursions import (
 from .transfers import (
     get_transfer_navigation_keyboard,
     get_transfer_card_simple_keyboard,
-    get_transfer_booking_keyboard
+    get_transfer_booking_keyboard,
+    get_transfer_people_count_keyboard
 )
 
 __all__ = [
@@ -88,5 +89,6 @@ __all__ = [
     # Transfers
     'get_transfer_navigation_keyboard',
     'get_transfer_card_simple_keyboard',
-    'get_transfer_booking_keyboard'
+    'get_transfer_booking_keyboard',
+    'get_transfer_people_count_keyboard'
 ]

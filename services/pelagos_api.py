@@ -579,7 +579,9 @@ class PelagosAPI:
         if location_id:
             params["location"] = location_id
 
+        logger.info(f"🌐 API Request (Transfers): export-services/ with params: {params}")
         data = await self.client.get("export-services/", params=params)
+        logger.info(f"📥 API Response code: {data.get('code') if data else 'None'}, transfers: {len(data.get('services', [])) if data else 0}")
 
         if not data or data.get("code") != "OK":
             return {"transfers": [], "pagination": None}
