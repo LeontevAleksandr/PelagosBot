@@ -77,8 +77,8 @@ def get_hotel_card_text(hotel: dict, rooms: list, guest_count: int = 2) -> str:
     prices = [room['price'] for room in rooms if room.get('price') and room['price'] > 0] if rooms else []
 
     if prices:
-        min_price = min(prices)
-        max_price = max(prices)
+        min_price = int(min(prices))
+        max_price = int(max(prices))
         if min_price == max_price:
             price_text = f"${min_price}"
         else:
@@ -138,8 +138,8 @@ def get_hotel_list_item_text(hotel: dict, rooms: list) -> str:
         stars = "⭐" * hotel['stars']
         return f"{hotel['name']} {stars}"
 
-    min_price = min(prices)
-    max_price = max(prices)
+    min_price = int(min(prices))
+    max_price = int(max(prices))
 
     stars = "⭐" * hotel['stars']
 
@@ -153,7 +153,7 @@ def get_hotel_rooms_text(hotel: dict, rooms: list) -> str:
     """Форматирование списка номеров отеля для просмотра"""
     # Показываем прочерк для номеров без цены
     def format_price(price):
-        return f"${price}" if price and price > 0 else "—"
+        return f"${int(price)}" if price and price > 0 else "—"
 
     rooms_text = "\n".join([
         f"{i+1}. {room['name']}: {format_price(room['price'])}"

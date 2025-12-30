@@ -183,19 +183,41 @@ class ExcursionsLoader:
         html = getattr(service, 'html', '')
         description = self._clean_html(html)[:200] if html else ""
 
-        # Цена (приоритет: current.price > min_price > event.price)
+        # Цена: используем min_price из service (минимальная цена для максимальной группы)
+        # ИСПРАВЛЕНИЕ: Приоритет изменён на min_price > current.price > event.price
+        # min_price - это минимальная цена за человека (для максимальной группы)
+        # current.price - это цена для определённого количества людей (current.grp)
         price = 0
-        current = getattr(service, 'current', None)
-        if current and isinstance(current, dict):
-            price = current.get('price', 0)
 
+        # Сначала проверяем min_price - это правильная минимальная цена
+        min_price = getattr(service, 'min_price', None)
+        if min_price and min_price > 0:
+            price = min_price
+            logger.debug(f"Цена из min_price: ${price} для '{service.name}'")
+
+        # Если нет min_price, берём из current (но это может быть цена для конкретной группы)
         if not price:
-            min_price = getattr(service, 'min_price', None)
-            if min_price:
-                price = min_price
+            current = getattr(service, 'current', None)
+            if current and isinstance(current, dict):
+                price = current.get('price', 0)
+                grp = current.get('grp', 0)
+                logger.debug(f"Цена из current: ${price} для {grp} чел. ('{service.name}')")
 
+        # В крайнем случае - event.price
         if not price:
             price = event.price or 0
+            if price:
+                logger.debug(f"Цена из event.price: ${price} для '{service.name}'")
+
+        # Получаем max_price если есть (для отображения диапазона)
+        max_price = getattr(service, 'max_price', None)
+
+        # НОВОЕ: Извлекаем price_list из rlst (список цен для разного количества людей)
+        rlst = getattr(service, 'rlst', None)
+        price_list = {}
+        if rlst:
+            price_list = self._extract_price_list(rlst)
+            logger.debug(f"Price list для '{service.name}': {price_list}")
 
         return {
             "id": str(event.id),
@@ -211,6 +233,9 @@ class ExcursionsLoader:
             "full_description": html,
             "price": price,
             "price_usd": price,
+            "min_price": price,  # Минимальная цена (для максимальной группы)
+            "max_price": max_price,  # Максимальная цена (для 1 человека)
+            "price_list": price_list,  # НОВОЕ: Список цен для разного количества людей
             "people_count": event.pax,
             "companions_count": event.pax,
             "photo": photo_url,
@@ -404,10 +429,6 @@ class ExcursionsLoader:
             excursions = []
             for event in events:
                 exc_dict = self._event_to_dict(event, excursion_type or "group")
-                # ИСПРАВЛЕНИЕ: Не фильтруем по острову для групповых экскурсий,
-                # так как API уже вернул события для нужной локации (параметр location в запросе).
-                # Фильтрация по острову в exc_dict может не совпадать, потому что
-                # service.location указывает на базовую локацию сервиса, а не на локацию события.
                 if exc_dict:
                     excursions.append(exc_dict)
 

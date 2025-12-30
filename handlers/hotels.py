@@ -69,6 +69,23 @@ router = Router()
 
 # ========== Вспомогательные функции ==========
 
+def get_room_count_keyboard():
+    """Создать клавиатуру для выбора количества номеров"""
+    buttons = [
+        [
+            InlineKeyboardButton(text="1 номер", callback_data="room_count:1"),
+            InlineKeyboardButton(text="2 номера", callback_data="room_count:2"),
+            InlineKeyboardButton(text="3 номера", callback_data="room_count:3")
+        ],
+        [
+            InlineKeyboardButton(text="4 номера", callback_data="room_count:4"),
+            InlineKeyboardButton(text="5 и более", callback_data="room_count:5")
+        ],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 async def _preload_hotel_rooms(hotel: dict, state_data: dict):
     """Фоновая предзагрузка номеров и цен отеля"""
     try:
@@ -846,6 +863,72 @@ async def navigate_hotels(callback: CallbackQuery, state: FSMContext):
 
 # ========== Бронирование ==========
 
+@router.callback_query(F.data.startswith("room_count:"))
+async def handle_room_count_selection(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора количества номеров через кнопки"""
+    await callback.answer()
+
+    count_str = callback.data.split(":")[1]
+    room_count = int(count_str)
+
+    # Удаляем сообщение с кнопками
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
+    data = await state.get_data()
+    hotel_id = data.get("selected_hotel_id")
+    room_id = data.get("selected_room_id")
+    check_in_raw = data.get("check_in")
+    check_out_raw = data.get("check_out")
+    check_in = format_date(check_in_raw)
+    check_out = format_date(check_out_raw)
+    search_island = data.get("search_island")
+
+    # Для поиска по словам нужно найти отель в списке и взять его location_code
+    hotels = data.get("hotels", [])
+    location_code = search_island
+    if not location_code:
+        for h in hotels:
+            if h.get("id") == hotel_id:
+                location_code = h.get("location_code")
+                break
+
+    hotel = await get_data_loader().get_hotel_by_id(
+        int(hotel_id),
+        location_code=location_code,
+        check_in=check_in_raw,
+        check_out=check_out_raw
+    )
+    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
+
+    # Сохраняем количество комнат
+    await state.update_data(room_count=room_count)
+
+    # Показываем подтверждение с двумя кнопками
+    confirmation_text = get_booking_confirmation_text(
+        room_count,
+        room["name"],
+        hotel["name"],
+        check_in,
+        check_out
+    )
+
+    # Клавиатура с двумя вариантами
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Добавить в заказ", callback_data="hotel:add_to_order")],
+        [InlineKeyboardButton(text="✅ Забронировать сейчас", callback_data="hotel:book_now")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.answer(
+        confirmation_text,
+        reply_markup=keyboard
+    )
+
+
 @router.callback_query(UserStates.HOTELS_SHOW_RESULTS, F.data.startswith("book:"))
 async def start_booking(callback: CallbackQuery, state: FSMContext):
     """Начало бронирования номера"""
@@ -858,14 +941,14 @@ async def start_booking(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     hotel_id = parts[1]
     room_id = parts[2]
-    
+
     await state.update_data(selected_hotel_id=hotel_id, selected_room_id=room_id)
-    
+
     await callback.message.answer(
         HOTELS_INPUT_ROOM_COUNT,
-        reply_markup=get_back_to_main_keyboard()
+        reply_markup=get_room_count_keyboard()
     )
-    
+
     await state.set_state(UserStates.HOTELS_INPUT_ROOM_COUNT)
 
 

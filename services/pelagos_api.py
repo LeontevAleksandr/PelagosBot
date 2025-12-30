@@ -307,11 +307,13 @@ class PelagosAPI:
         """
         endpoint = "group-tours/"
         if date:
-            endpoint = f"group-tours/{date}/"
+            endpoint = f"group-tours/{date}/fixed/"
 
         params = {
             "calendar": 1,
             "location": location
+            # Примечание: extend=1 не работает для calendar API
+            # Цены загружаются отдельно через get_excursion_event_details
         }
 
         data = await self.client.get(endpoint, params=params)

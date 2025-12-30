@@ -77,11 +77,15 @@ MONTH_NAMES_GENITIVE = [
 def get_people_count_keyboard():
     """Создать клавиатуру для выбора количества людей"""
     buttons = [
-        [InlineKeyboardButton(text="1 человек", callback_data="people_count:1")],
-        [InlineKeyboardButton(text="2 человека", callback_data="people_count:2")],
-        [InlineKeyboardButton(text="3 человека", callback_data="people_count:3")],
-        [InlineKeyboardButton(text="4 человека", callback_data="people_count:4")],
-        [InlineKeyboardButton(text="5 и более", callback_data="people_count:5")],
+        [
+            InlineKeyboardButton(text="1 человек", callback_data="people_count:1"),
+            InlineKeyboardButton(text="2 человека", callback_data="people_count:2"),
+            InlineKeyboardButton(text="3 человека", callback_data="people_count:3")
+        ],
+        [
+            InlineKeyboardButton(text="4 человека", callback_data="people_count:4"),
+            InlineKeyboardButton(text="5 и более", callback_data="people_count:5")
+        ],
         [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -104,7 +108,8 @@ async def handle_people_count_selection(callback: CallbackQuery, state: FSMConte
 
     # В зависимости от текущего состояния выполняем соответствующую логику
     if current_state == UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE:
-        # Для групповых экскурсий
+        # Для групповых экскурсий - просто сохраняем количество людей (для бронирования)
+        # Цена НЕ зависит от количества - это фиксированная цена за человека
         await state.update_data(excursion_people_count=people_count)
 
         data = await state.get_data()
@@ -269,14 +274,13 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
 
     date = callback.data.split(":")[1]
 
-    # ИЗМЕНЕНО: Групповые экскурсии теперь загружаются БЕЗ фильтра по острову (все острова)
     # Получаем экскурсии на эту дату
     excursions = await get_data_loader().get_excursions_by_filters(
-        island=None,  # Без фильтра по острову
+        island=None,
         excursion_type="group",
         date=date
     )
-    
+
     if not excursions:
         await callback.message.edit_text(
             NO_EXCURSIONS_FOUND,
@@ -284,14 +288,25 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
         )
         await state.update_data(current_date=date)
         return
-    
+
+    # Дозагружаем цены для всех экскурсий (фиксированная цена за человека)
+    logger.info(f"📊 Дозагрузка цен для {len(excursions)} групповых экскурсий...")
+    for excursion in excursions:
+        if not excursion.get('price_usd') or excursion.get('price_usd') == 0:
+            # Загружаем полные данные экскурсии
+            full_excursion = await get_data_loader().get_excursion_by_id(excursion['id'])
+            if full_excursion and full_excursion.get('price_usd'):
+                logger.info(f"   ✓ {excursion['name']}: ${full_excursion['price_usd']} за чел")
+                excursion['price'] = full_excursion['price_usd']
+                excursion['price_usd'] = full_excursion['price_usd']
+
     # Сохраняем данные
     await state.update_data(
         excursions=excursions,
         current_date=date,
         current_excursion_index=0
     )
-    
+
     # Удаляем сообщение с календарем
     await callback.message.delete()
 
@@ -588,6 +603,16 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
     if not excursions:
         await callback.answer(f"На {MONTH_NAMES_GENITIVE[month-1]} экскурсий не найдено", show_alert=True)
         return
+
+    # ИСПРАВЛЕНИЕ: Дозагружаем цены для всех экскурсий за месяц
+    logger.info(f"📊 Дозагрузка цен для {len(excursions)} экскурсий за месяц...")
+    for excursion in excursions:
+        if not excursion.get('price_usd') or excursion.get('price_usd') == 0:
+            # Загружаем полные данные экскурсии с ценой
+            full_excursion = await get_data_loader().get_excursion_by_id(excursion['id'])
+            if full_excursion and full_excursion.get('price_usd'):
+                excursion['price'] = full_excursion['price_usd']
+                excursion['price_usd'] = full_excursion['price_usd']
 
     # Сохраняем данные
     await state.update_data(

@@ -48,7 +48,7 @@ def get_group_excursion_card_text(excursion: dict, expanded: bool = False) -> st
     """Форматирование карточки групповой экскурсии"""
     price_usd = excursion['price_usd']
 
-    # Формируем строку с ценой
+    # Формируем строку с ценой (фиксированная цена за человека)
     if price_usd and price_usd > 0:
         price_rub = int(convert_price(price_usd, "usd", "rub"))
         price_peso = int(convert_price(price_usd, "usd", "peso"))
