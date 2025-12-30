@@ -44,15 +44,25 @@ NO_EXCURSIONS_FOUND = """😔 К сожалению, экскурсий на в�
 Попробуйте выбрать другую дату.""" # или создайте заявку на поиск попутчиков.
 
 
-def get_group_excursion_card_text(excursion: dict, expanded: bool = False) -> str:
+def get_group_excursion_card_text(excursion: dict, people_count: int = 1, expanded: bool = False) -> str:
     """Форматирование карточки групповой экскурсии"""
     price_usd = excursion['price_usd']
 
-    # Формируем строку с ценой (фиксированная цена за человека)
+    # Формируем строку с ценой (фиксированная цена за человека + общая стоимость)
     if price_usd and price_usd > 0:
-        price_rub = int(convert_price(price_usd, "usd", "rub"))
-        price_peso = int(convert_price(price_usd, "usd", "peso"))
-        price_line = f"💵 ${price_usd} / {price_rub} руб. / {price_peso} песо"
+        # Цена за человека
+        price_per_person_rub = int(convert_price(price_usd, "usd", "rub"))
+        price_per_person_peso = int(convert_price(price_usd, "usd", "peso"))
+
+        # Общая стоимость
+        total_price_usd = price_usd * people_count
+        total_price_rub = int(convert_price(total_price_usd, "usd", "rub"))
+        total_price_peso = int(convert_price(total_price_usd, "usd", "peso"))
+
+        price_line = f"""💵 Цена за чел.: ${price_usd} / {price_per_person_rub} руб. / {price_per_person_peso} песо
+
+Общая стоимость ({people_count} чел.):
+💰 ${total_price_usd} / {total_price_rub} руб. / {total_price_peso} песо"""
     else:
         price_line = "💵 Цена по запросу"
 
@@ -60,8 +70,9 @@ def get_group_excursion_card_text(excursion: dict, expanded: bool = False) -> st
 {excursion['name']}
 
 📍 {excursion['island_name']}
-{price_line}
-🕐 {excursion['date']}, {excursion['time']}"""
+🕐 {excursion['date']}, {excursion['time']}
+
+{price_line}"""
 
     # Если развернуто - показываем описание
     if expanded and excursion.get('description'):

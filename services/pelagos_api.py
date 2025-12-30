@@ -305,15 +305,16 @@ class PelagosAPI:
         Returns:
             список месяцев с экскурсиями
         """
-        endpoint = "group-tours/"
+        # ВАЖНО: Всегда используем /fixed/ для получения только групповых экскурсий
         if date:
             endpoint = f"group-tours/{date}/fixed/"
+        else:
+            # Fallback на /fixed/ если дата не указана (хотя лучше всегда передавать дату)
+            endpoint = "group-tours/fixed/"
 
         params = {
             "calendar": 1,
             "location": location
-            # Примечание: extend=1 не работает для calendar API
-            # Цены загружаются отдельно через get_excursion_event_details
         }
 
         data = await self.client.get(endpoint, params=params)
@@ -418,21 +419,13 @@ class PelagosAPI:
         if not months:
             return []
 
-        # Собираем все события за указанную дату
+        # Собираем все события из календаря
+        # Когда передается дата (например, 01.01.2026), API возвращает календарь месяца,
+        # который может включать дни из соседних месяцев (other: true).
+        # Мы собираем ВСЕ события, а фильтрация по дате происходит на уровне выше.
         all_events = []
         for month in months:
             for day in month.days:
-                # Если дата указана, фильтруем
-                if date:
-                    # Конвертируем day.date из DD.MM.YYYY в YYYY-MM-DD
-                    try:
-                        day_dt = datetime.strptime(day.date, "%d.%m.%Y")
-                        day_date_str = day_dt.strftime("%Y-%m-%d")
-                        if day_date_str != date:
-                            continue
-                    except ValueError:
-                        continue
-
                 all_events.extend(day.events)
 
         return all_events

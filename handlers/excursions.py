@@ -108,23 +108,18 @@ async def handle_people_count_selection(callback: CallbackQuery, state: FSMConte
 
     # В зависимости от текущего состояния выполняем соответствующую логику
     if current_state == UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE:
-        # Для групповых экскурсий - просто сохраняем количество людей (для бронирования)
-        # Цена НЕ зависит от количества - это фиксированная цена за человека
-        await state.update_data(excursion_people_count=people_count)
-
-        data = await state.get_data()
-        excursion_id = data.get("selected_excursion_id")
-        excursion = await get_data_loader().get_excursion_by_id(excursion_id)
-
-        if not excursion:
-            await callback.message.edit_text("❌ Ошибка: экскурсия не найдена")
-            return
-
-        keyboard = get_action_choice_keyboard("group")
-        await callback.message.edit_text(
-            get_excursion_join_text(excursion["name"]),
-            reply_markup=keyboard
+        # Для групповых экскурсий - сохраняем количество и показываем список экскурсий
+        # Цена фиксированная за человека, но показываем общую стоимость
+        await state.update_data(
+            excursion_people_count=people_count,
+            current_excursion_index=0
         )
+
+        # Удаляем сообщение с выбором количества
+        await callback.message.delete()
+
+        # Показываем первую экскурсию с учетом количества людей
+        await show_group_excursion(callback.message, state, 0)
 
     elif current_state == UserStates.EXCURSIONS_PRIVATE_INPUT_PEOPLE:
         # Для индивидуальных экскурсий
@@ -300,30 +295,31 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
                 excursion['price'] = full_excursion['price_usd']
                 excursion['price_usd'] = full_excursion['price_usd']
 
-    # Сохраняем данные
+    # Сохраняем экскурсии и дату
     await state.update_data(
         excursions=excursions,
-        current_date=date,
-        current_excursion_index=0
+        current_date=date
     )
 
-    # Удаляем сообщение с календарем
-    await callback.message.delete()
-
-    # Показываем первую экскурсию
-    await show_group_excursion(callback.message, state, 0)
+    # Запрашиваем количество человек
+    await callback.message.edit_text(
+        "Сколько вас человек собирается ехать (взрослые и дети старше 7 лет)?",
+        reply_markup=get_people_count_keyboard()
+    )
+    await state.set_state(UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE)
 
 
 async def show_group_excursion(message: Message, state: FSMContext, index: int, expanded: bool = False):
     """Показать карточку групповой экскурсии"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
+    people_count = data.get("excursion_people_count", 1)
 
     if not excursions or index >= len(excursions):
         return
 
     excursion = excursions[index]
-    card_text = get_group_excursion_card_text(excursion, expanded)
+    card_text = get_group_excursion_card_text(excursion, people_count, expanded)
 
     # Проверяем наличие других экскурсий на эту же дату (для пагинации)
     has_prev = index > 0
@@ -353,7 +349,8 @@ async def _update_group_excursion_card(callback: CallbackQuery, state: FSMContex
         return
 
     excursion = excursions[index]
-    card_text = get_group_excursion_card_text(excursion, expanded=expanded)
+    people_count = data.get("excursion_people_count", 1)
+    card_text = get_group_excursion_card_text(excursion, people_count, expanded=expanded)
 
     has_prev = index > 0
     has_next = index < len(excursions) - 1
@@ -416,13 +413,14 @@ async def send_excursions_cards_page(message: Message, state: FSMContext, page: 
     """Отправ��ть страницу с экскурсиями (по 5 штук)"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
+    people_count = data.get("excursion_people_count", 1)
 
     if not excursions:
         return
 
     # Функция форматирования карточки
     def format_card(excursion):
-        return get_group_excursion_card_text(excursion, expanded=False)
+        return get_group_excursion_card_text(excursion, people_count, expanded=False)
 
     # Функция создания клавиатуры
     def get_keyboard(excursion):
@@ -580,12 +578,14 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
     month_str = callback.data.split(":")[1]
     year, month = map(int, month_str.split("-"))
 
-    # ИЗМЕНЕНО: Групповые экскурсии теперь загружаются БЕЗ фильтра по острову (все острова)
-    # Получаем все групповые экскурсии без фильтрации по дате и острову
+    # Формируем дату первого дня месяца для запроса
+    first_day_of_month = f"{year:04d}-{month:02d}-01"
+
+    # Загружаем экскурсии, указав первый день месяца в запросе
     all_excursions = await get_data_loader().get_excursions_by_filters(
         island=None,  # Без фильтра по острову
         excursion_type="group",
-        date=None  # Без даты - получаем весь календарь
+        date=first_day_of_month  # Первый день месяца
     )
 
     # Фильтруем только экскурсии за нужный месяц/год
@@ -721,6 +721,7 @@ async def view_group_month_excursion(callback: CallbackQuery, state: FSMContext)
     # Сначала пробуем найти экскурсию в уже загруженных данных (с датой)
     data = await state.get_data()
     group_month_excursions = data.get("group_month_excursions", [])
+    people_count = data.get("excursion_people_count", 1)
 
     excursion = None
     for exc in group_month_excursions:
@@ -736,7 +737,7 @@ async def view_group_month_excursion(callback: CallbackQuery, state: FSMContext)
         return
 
     # Показываем детальную карточку
-    card_text = get_group_excursion_card_text(excursion, expanded=False)
+    card_text = get_group_excursion_card_text(excursion, people_count, expanded=False)
     keyboard = get_group_month_excursion_detail_keyboard(excursion['id'])
 
     # Используем универсальную функцию отправки
@@ -745,7 +746,7 @@ async def view_group_month_excursion(callback: CallbackQuery, state: FSMContext)
 
 @router.callback_query(F.data.startswith("exc_join:"))
 async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
-    """Присоединиться к групповой экскурсии - запрашиваем количество людей"""
+    """Присоединиться к групповой экскурсии"""
     await callback.answer()
 
     excursion_id = callback.data.split(":")[1]
@@ -754,6 +755,10 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
     if not excursion:
         return
 
+    # Получаем количество людей из state (уже было введено ранее)
+    data = await state.get_data()
+    people_count = data.get("excursion_people_count", 1)
+
     # Сохраняем ID и дату экскурсии
     excursion_date = excursion.get("date")
     await state.update_data(
@@ -761,13 +766,12 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
         excursion_date=excursion_date
     )
 
-    # Запрашиваем количество человек с клавиатурой
+    # Показываем форму для ввода контактных данных
+    keyboard = get_action_choice_keyboard("group")
     await callback.message.answer(
-        "Сколько человек будет участвовать в экскурсии?",
-        reply_markup=get_people_count_keyboard()
+        get_excursion_booking_text(excursion["name"], people_count, excursion_date),
+        reply_markup=keyboard
     )
-
-    await state.set_state(UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE)
 
 
 # ========== ВЕТКА B: Индивидуальные экскурсии ==========

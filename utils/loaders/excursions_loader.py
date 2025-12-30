@@ -450,29 +450,42 @@ class ExcursionsLoader:
             island: location_id в виде строки (например, "9" для Себу) или None для всех
         """
         try:
-            # НОВАЯ ЛОГИКА: сначала пытаемся взять из кэша все экскурсии
-            all_excursions = self.cache.get("all_private_excursions")
-
-            if not all_excursions:
-                # Если нет в кэше - загружаем через get_available_islands_with_count
-                # Эта функция автоматически закэширует все экскурсии
-                logger.info("🔄 Кэш пуст, загружаем все экскурсии...")
-                await self.get_available_islands_with_count()
-                all_excursions = self.cache.get("all_private_excursions") or []
-
-            # Если остров указан - фильтруем локально
+            # Если остров указан - делаем прямой API запрос с фильтром
             if island:
                 try:
                     location_id = int(island)
-                    logger.info(f"🔍 Фильтруем индивидуальные экскурсии по location_id={location_id}")
 
-                    # Фильтруем по location из service (не island!)
-                    excursions = [
-                        exc for exc in all_excursions
-                        if exc.get('location_id') == location_id
-                    ]
+                    # Проверяем кэш для конкретного острова
+                    cache_key = f"private_excursions_island_{location_id}"
+                    cached = self.cache.get(cache_key)
+                    if cached:
+                        logger.info(f"✓ Кэш HIT: {len(cached)} экскурсий для острова {self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)}")
+                        return cached
 
-                    logger.info(f"✅ Найдено {len(excursions)} экскурсий для острова {self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)}")
+                    logger.info(f"🔍 Загрузка индивидуальных экскурсий для location_id={location_id} ({self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)})")
+
+                    # Делаем API запрос с фильтром по location_id
+                    tomorrow = datetime.now() + timedelta(days=1)
+                    api_date = tomorrow.strftime("%d.%m.%Y")
+
+                    services = await self.api.get_private_excursions(
+                        location_id=location_id,
+                        date=api_date
+                    )
+
+                    logger.info(f"📡 API вернул {len(services)} индивидуальных экскурсий для острова {location_id}")
+
+                    # Конвертируем services в словари
+                    excursions = []
+                    for service in services:
+                        exc_dict = self._service_to_dict(service, "private")
+                        if exc_dict:
+                            excursions.append(exc_dict)
+
+                    # Кэшируем результат для этого острова
+                    self.cache.set(cache_key, excursions, ttl=self.CACHE_TTL_PRIVATE)
+
+                    logger.info(f"✅ Возвращаем {len(excursions)} индивидуальных экскурсий для острова {self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)}")
                     return excursions
 
                 except ValueError:
@@ -496,6 +509,16 @@ class ExcursionsLoader:
                     logger.info(f"✅ Возвращаем {len(excursions)} индивидуальных экскурсий")
                     return excursions
             else:
+                # Если остров не указан - загружаем все экскурсии через общий кэш
+                all_excursions = self.cache.get("all_private_excursions")
+
+                if not all_excursions:
+                    # Если нет в кэше - загружаем через get_available_islands_with_count
+                    # Эта функция автоматически закэширует все экскурсии
+                    logger.info("🔄 Кэш пуст, загружаем все экскурсии...")
+                    await self.get_available_islands_with_count()
+                    all_excursions = self.cache.get("all_private_excursions") or []
+
                 # Возвращаем все экскурсии
                 logger.info(f"✅ Возвращаем все {len(all_excursions)} индивидуальных экскурсий")
                 return all_excursions
@@ -588,22 +611,34 @@ class ExcursionsLoader:
                     self.cache.set(cache_key, exc_dict, ttl=self.CACHE_TTL_COMPANIONS)
                     return exc_dict
 
-            # ОПТИМИЗАЦИЯ: проверяем общий кэш индивидуальных экскурсий
+            # ОПТИМИЗАЦИЯ: проверяем кэши индивидуальных экскурсий для конкретных островов
             # перед загрузкой из API
-            for island_code in list(self.LOCATION_MAP.keys()) + ['all']:
-                private_cache_key = f"excursions_private:{island_code}"
-                private_cached = self.cache.get(private_cache_key)
-                if private_cached:
-                    for exc in private_cached:
+
+            # 1. Проверяем кэши для конкретных островов (новый формат)
+            for location_id in self.PRIVATE_ISLANDS_MAP.keys():
+                island_cache_key = f"private_excursions_island_{location_id}"
+                island_cached = self.cache.get(island_cache_key)
+                if island_cached:
+                    for exc in island_cached:
                         if exc.get('id') == str(service_id) or exc.get('service_id') == str(service_id):
                             self.cache.set(cache_key, exc, ttl=self.CACHE_TTL_PRIVATE)
-                            logger.info(f"✓ Найдено в кэше индивидуальных экскурсий")
+                            logger.info(f"✓ Найдена индивидуальная экскурсия {service_id}")
                             return exc
 
-            # Если не нашли - загружаем все индивидуальные и ищем
+            # 2. Проверяем общий кэш (старый формат)
+            all_private_cache = self.cache.get("all_private_excursions")
+            if all_private_cache:
+                for exc in all_private_cache:
+                    if exc.get('id') == str(service_id) or exc.get('service_id') == str(service_id):
+                        self.cache.set(cache_key, exc, ttl=self.CACHE_TTL_PRIVATE)
+                        logger.info(f"✓ Найдена индивидуальная экскурсия {service_id}")
+                        return exc
+
+            # Если не нашли в кэше - загружаем все индивидуальные экскурсии
             tomorrow = datetime.now() + timedelta(days=1)
             api_date = tomorrow.strftime("%d.%m.%Y")
 
+            logger.info(f"⚠️ Экскурсия {service_id} не найдена в кэше, загружаем все индивидуальные экскурсии...")
             services = await self.api.get_private_excursions(location_id=0, date=api_date)
 
             for service_data in services:
