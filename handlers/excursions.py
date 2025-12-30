@@ -72,6 +72,140 @@ MONTH_NAMES_GENITIVE = [
 ]
 
 
+# ========== Вспомогательные функции ==========
+
+def get_people_count_keyboard():
+    """Создать клавиатуру для выбора количества людей"""
+    buttons = [
+        [InlineKeyboardButton(text="1 человек", callback_data="people_count:1")],
+        [InlineKeyboardButton(text="2 человека", callback_data="people_count:2")],
+        [InlineKeyboardButton(text="3 человека", callback_data="people_count:3")],
+        [InlineKeyboardButton(text="4 человека", callback_data="people_count:4")],
+        [InlineKeyboardButton(text="5 и более", callback_data="people_count:5")],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ========== Обработчик выбора количества людей ==========
+
+@router.callback_query(F.data.startswith("people_count:"))
+async def handle_people_count_selection(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора количества людей через кнопки"""
+    await callback.answer()
+
+    count_str = callback.data.split(":")[1]
+
+    # Сохраняем выбранное количество
+    people_count = int(count_str)
+
+    # Получаем текущее состояние для определения контекста
+    current_state = await state.get_state()
+
+    # В зависимости от текущего состояния выполняем соответствующую логику
+    if current_state == UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE:
+        # Для групповых экскурсий
+        await state.update_data(excursion_people_count=people_count)
+
+        data = await state.get_data()
+        excursion_id = data.get("selected_excursion_id")
+        excursion = await get_data_loader().get_excursion_by_id(excursion_id)
+
+        if not excursion:
+            await callback.message.edit_text("❌ Ошибка: экскурсия не найдена")
+            return
+
+        keyboard = get_action_choice_keyboard("group")
+        await callback.message.edit_text(
+            get_excursion_join_text(excursion["name"]),
+            reply_markup=keyboard
+        )
+
+    elif current_state == UserStates.EXCURSIONS_PRIVATE_INPUT_PEOPLE:
+        # Для индивидуальных экскурсий
+        data = await state.get_data()
+        island = data.get("island")
+
+        loading_msg = await callback.message.edit_text("⏳ Загружаю индивидуальные экскурсии...")
+
+        excursions = await get_data_loader().get_excursions_by_filters(
+            island=island,
+            excursion_type="private"
+        )
+
+        try:
+            await loading_msg.delete()
+        except:
+            pass
+
+        if not excursions:
+            await callback.message.answer(
+                "😔 К сожалению, индивидуальных экскурсий не найдено.",
+                reply_markup=get_back_to_main_keyboard()
+            )
+            return
+
+        await state.update_data(
+            people_count=people_count,
+            excursions=excursions,
+            current_excursion_index=0
+        )
+
+        await show_private_excursion(callback.message, state, 0)
+        await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
+
+    elif current_state == UserStates.COMPANIONS_JOIN_INPUT_PEOPLE:
+        # Для присоединения к попутчикам
+        await state.update_data(excursion_people_count=people_count)
+
+        data = await state.get_data()
+        excursion_id = data.get("selected_excursion_id")
+        excursion = await get_data_loader().get_excursion_by_id(excursion_id)
+
+        if not excursion:
+            await callback.message.edit_text("❌ Ошибка: экскурсия не найдена")
+            return
+
+        keyboard = get_action_choice_keyboard("companion")
+        await callback.message.edit_text(
+            get_excursion_join_text(excursion["name"]),
+            reply_markup=keyboard
+        )
+
+    elif current_state == UserStates.COMPANIONS_CREATE_INPUT_PEOPLE:
+        # Для создания заявки на попутчиков
+        await state.update_data(people_count=people_count)
+
+        loading_msg = await callback.message.edit_text("⏳ Загружаю доступные острова с экскурсиями...")
+
+        try:
+            islands = await get_data_loader().excursions_loader.get_available_islands_with_count()
+
+            if not islands:
+                await loading_msg.edit_text(
+                    "😔 К сожалению, не удалось загрузить список островов с экскурсиями. Попробуйте позже.",
+                    reply_markup=get_back_to_main_keyboard()
+                )
+                return
+
+            await loading_msg.edit_text(
+                f"**Создание заявки на поиск попутчиков**\n\n"
+                f"Выберите остров для поиска экскурсий:\n"
+                f"_(Всего найдено {len(islands)} островов с экскурсиями)_",
+                reply_markup=get_private_islands_keyboard(islands),
+                parse_mode="Markdown"
+            )
+
+            await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_ISLAND)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки островов для создания заявки на попутчиков: {e}")
+            await loading_msg.edit_text(
+                "😔 Произошла ошибка при загрузке списка островов.",
+                reply_markup=get_back_to_main_keyboard()
+            )
+
+
 # ========== Старт флоу экскурсий ==========
 
 @router.callback_query(F.data == "main:excursions")
@@ -602,64 +736,13 @@ async def join_group_excursion(callback: CallbackQuery, state: FSMContext):
         excursion_date=excursion_date
     )
 
-    # Запрашиваем количество человек
+    # Запрашиваем количество человек с клавиатурой
     await callback.message.answer(
         "Сколько человек будет участвовать в экскурсии?",
-        reply_markup=get_back_to_main_keyboard()
+        reply_markup=get_people_count_keyboard()
     )
 
     await state.set_state(UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE)
-
-
-@router.message(UserStates.EXCURSIONS_GROUP_INPUT_PEOPLE, F.text)
-async def process_group_people_count(message: Message, state: FSMContext):
-    """Обработка количества людей для групповой экскурсии"""
-    user_input = message.text.strip()
-
-    # Проверяем, что введено число
-    if not user_input.isdigit():
-        await message.answer(
-            "❌ Пожалуйста, введите число (количество человек).",
-            reply_markup=get_back_to_main_keyboard()
-        )
-        return
-
-    people_count = int(user_input)
-
-    # Проверяем, что число >= 1
-    if people_count < 1:
-        await message.answer(
-            "❌ Количество человек должно быть не менее 1.",
-            reply_markup=get_back_to_main_keyboard()
-        )
-        return
-
-    # Удаляем сообщение пользователя
-    try:
-        await message.delete()
-    except:
-        pass
-
-    # КРИТИЧНО: Сохраняем количество людей в excursion_people_count
-    # Это поле используется в add_excursion_to_order() и book_excursion_now()
-    await state.update_data(excursion_people_count=people_count)
-
-    # Получаем данные экскурсии для отображения
-    data = await state.get_data()
-    excursion_id = data.get("selected_excursion_id")
-    excursion = await get_data_loader().get_excursion_by_id(excursion_id)
-
-    if not excursion:
-        await message.answer("❌ Ошибка: экскурсия не найдена")
-        return
-
-    # Показываем клавиатуру выбора действия
-    keyboard = get_action_choice_keyboard("group")
-
-    await message.answer(
-        get_excursion_join_text(excursion["name"]),
-        reply_markup=keyboard
-    )
 
 
 # ========== ВЕТКА B: Индивидуальные экскурсии ==========
@@ -712,71 +795,13 @@ async def select_private_island(callback: CallbackQuery, state: FSMContext):
     # Сохраняем location_id как island в state (для совместимости с существующим кодом)
     await state.update_data(island=str(location_id))
 
-    # Запрашиваем количество человек
+    # Запрашиваем количество человек с клавиатурой
     await callback.message.edit_text(
         EXCURSIONS_PRIVATE_INTRO,
-        reply_markup=get_back_to_main_keyboard()
+        reply_markup=get_people_count_keyboard()
     )
 
     await state.set_state(UserStates.EXCURSIONS_PRIVATE_INPUT_PEOPLE)
-
-
-@router.message(UserStates.EXCURSIONS_PRIVATE_INPUT_PEOPLE, F.text)
-async def process_private_people_count(message: Message, state: FSMContext):
-    """Обработка количества человек для индивидуальных экскурсий"""
-    try:
-        people_count = int(message.text.strip())
-
-        if people_count < 1:
-            raise ValueError
-
-        # Удаляем сообщение пользователя
-        try:
-            await message.delete()
-        except:
-            pass
-
-        data = await state.get_data()
-        island = data.get("island")
-
-        # Показываем сообщение о загрузке
-        loading_msg = await message.answer("⏳ Загружаю индивидуальные экскурсии...")
-
-        # Получаем индивидуальные экскурсии
-        excursions = await get_data_loader().get_excursions_by_filters(
-            island=island,
-            excursion_type="private"
-        )
-
-        # Удаляем сообщение о загрузке
-        try:
-            await loading_msg.delete()
-        except:
-            pass
-
-        if not excursions:
-            await message.answer(
-                "😔 К сожалению, индивидуальных экскурсий не найдено.",
-                reply_markup=get_back_to_main_keyboard()
-            )
-            return
-
-        await state.update_data(
-            people_count=people_count,
-            excursions=excursions,
-            current_excursion_index=0
-        )
-
-        # Показываем первую экскурсию
-        await show_private_excursion(message, state, 0)
-
-        await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
-
-    except ValueError:
-        await message.answer(
-            "❌ Пожалуйста, введите корректное число",
-            reply_markup=get_back_to_main_keyboard()
-        )
 
 
 async def show_private_excursion(message: Message, state: FSMContext, index: int, expanded: bool = False):
@@ -1237,61 +1262,13 @@ async def join_companion_excursion(callback: CallbackQuery, state: FSMContext):
     # Сохраняем ID экскурсии
     await state.update_data(selected_excursion_id=excursion_id)
 
-    # Запрашиваем количество человек
+    # Запрашиваем количество человек с клавиатурой
     await callback.message.answer(
         "Сколько человек присоединяется к экскурсии?",
-        reply_markup=get_back_to_main_keyboard()
+        reply_markup=get_people_count_keyboard()
     )
 
     await state.set_state(UserStates.COMPANIONS_JOIN_INPUT_PEOPLE)
-
-
-@router.message(UserStates.COMPANIONS_JOIN_INPUT_PEOPLE, F.text)
-async def process_companion_join_people_count(message: Message, state: FSMContext):
-    """Обработка количества людей для присоединения к попутчикам"""
-    user_input = message.text.strip()
-
-    if not user_input.isdigit():
-        await message.answer(
-            "❌ Пожалуйста, введите число (количество человек).",
-            reply_markup=get_back_to_main_keyboard()
-        )
-        return
-
-    people_count = int(user_input)
-
-    if people_count < 1:
-        await message.answer(
-            "❌ Количество человек должно быть не менее 1.",
-            reply_markup=get_back_to_main_keyboard()
-        )
-        return
-
-    # Удаляем сообщение пользователя
-    try:
-        await message.delete()
-    except:
-        pass
-
-    # КРИТИЧНО: Сохраняем количество людей
-    await state.update_data(excursion_people_count=people_count)
-
-    # Получаем данные экскурсии
-    data = await state.get_data()
-    excursion_id = data.get("selected_excursion_id")
-    excursion = await get_data_loader().get_excursion_by_id(excursion_id)
-
-    if not excursion:
-        await message.answer("❌ Ошибка: экскурсия не найдена")
-        return
-
-    # Показываем клавиатуру выбора действия
-    keyboard = get_action_choice_keyboard("companion")
-
-    await message.answer(
-        get_excursion_join_text(excursion["name"]),
-        reply_markup=keyboard
-    )
 
 
 @router.callback_query(F.data == "comp_back:list")
@@ -1374,13 +1351,70 @@ async def create_companion_agree(callback: CallbackQuery, state: FSMContext):
     """Согласие с условиями поиска попутчиков - запрашиваем количество человек"""
     await callback.answer()
 
-    # Запрашиваем количество человек (как в ветке индивидуальных экскурсий)
+    # Запрашиваем количество человек с клавиатурой
     await callback.message.edit_text(
         COMPANIONS_INPUT_PEOPLE,
-        reply_markup=get_back_to_main_keyboard()
+        reply_markup=get_people_count_keyboard()
     )
 
     await state.set_state(UserStates.COMPANIONS_CREATE_INPUT_PEOPLE)
+
+
+@router.message(UserStates.COMPANIONS_CREATE_INPUT_PEOPLE, F.text)
+async def process_companion_people_count(message: Message, state: FSMContext):
+    """Обработка количества человек для заявки - показываем выбор острова"""
+    try:
+        people_count = int(message.text.strip())
+
+        if people_count < 1:
+            raise ValueError
+
+        # Удаляем сообщение пользователя
+        try:
+            await message.delete()
+        except:
+            pass
+
+        # Сохраняем количество людей
+        await state.update_data(people_count=people_count)
+
+        # Показываем сообщение о загрузке
+        loading_msg = await message.answer("⏳ Загружаю доступные острова с экскурсиями...")
+
+        try:
+            # Загружаем все острова с подсчётом экскурсий (используем тот же метод что и для private)
+            islands = await get_data_loader().excursions_loader.get_available_islands_with_count()
+
+            if not islands:
+                await loading_msg.edit_text(
+                    "😔 К сожалению, не удалось загрузить список островов с экскурсиями. Попробуйте позже.",
+                    reply_markup=get_back_to_main_keyboard()
+                )
+                return
+
+            # Показываем клавиатуру выбора острова
+            await loading_msg.edit_text(
+                f"**Создание заявки на поиск попутчиков**\n\n"
+                f"Выберите остров для поиска экскурсий:\n"
+                f"_(Всего найдено {len(islands)} островов с экскурсиями)_",
+                reply_markup=get_private_islands_keyboard(islands),
+                parse_mode="Markdown"
+            )
+
+            await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_ISLAND)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки островов для создания заявки на попутчиков: {e}")
+            await loading_msg.edit_text(
+                "😔 Произошла ошибка при загрузке списка островов.",
+                reply_markup=get_back_to_main_keyboard()
+            )
+
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите корректное число",
+            reply_markup=get_back_to_main_keyboard()
+        )
 
 
 @router.callback_query(UserStates.COMPANIONS_CREATE_SELECT_EXCURSION, F.data.startswith("exc_nav:"))
@@ -1478,63 +1512,6 @@ async def select_date_for_companion(callback: CallbackQuery, state: FSMContext):
         text,
         reply_markup=keyboard
     )
-
-
-@router.message(UserStates.COMPANIONS_CREATE_INPUT_PEOPLE, F.text)
-async def process_companion_people_count(message: Message, state: FSMContext):
-    """Обработка количества человек для заявки - показываем выбор острова"""
-    try:
-        people_count = int(message.text.strip())
-
-        if people_count < 1:
-            raise ValueError
-
-        # Удаляем сообщение пользователя
-        try:
-            await message.delete()
-        except:
-            pass
-
-        # Сохраняем количество людей
-        await state.update_data(people_count=people_count)
-
-        # Показываем сообщение о загрузке
-        loading_msg = await message.answer("⏳ Загружаю доступные острова с экскурсиями...")
-
-        try:
-            # Загружаем все острова с подсчётом экскурсий (используем тот же метод что и для private)
-            islands = await get_data_loader().excursions_loader.get_available_islands_with_count()
-
-            if not islands:
-                await loading_msg.edit_text(
-                    "😔 К сожалению, не удалось загрузить список островов с экскурсиями. Попробуйте позже.",
-                    reply_markup=get_back_to_main_keyboard()
-                )
-                return
-
-            # Показываем клавиатуру выбора острова
-            await loading_msg.edit_text(
-                f"**Создание заявки на поиск попутчиков**\n\n"
-                f"Выберите остров для поиска экскурсий:\n"
-                f"_(Всего найдено {len(islands)} островов с экскурсиями)_",
-                reply_markup=get_private_islands_keyboard(islands),
-                parse_mode="Markdown"
-            )
-
-            await state.set_state(UserStates.COMPANIONS_CREATE_SELECT_ISLAND)
-
-        except Exception as e:
-            logger.error(f"❌ Ошибка загрузки островов для создания заявки на попутчиков: {e}")
-            await loading_msg.edit_text(
-                "😔 Произошла ошибка при загрузке списка островов.",
-                reply_markup=get_back_to_main_keyboard()
-            )
-
-    except ValueError:
-        await message.answer(
-            "❌ Пожалуйста, введите корректное число",
-            reply_markup=get_back_to_main_keyboard()
-        )
 
 
 @router.callback_query(

@@ -14,7 +14,7 @@ COMPANY_LINKS = {
     "conditions_price": "https://pelagostours.com/garantiya-nizkoj-czeny",
     "conditions_transfer": "https://pelagostours.com/besplatnyj-transfer",
     "conditions_discount": "https://pelagostours.com/skidka-10",
-    "support": "https://t.me/pelagos_support",
+    "support": "t.me/PelagosChat",
     "youtube": "https://www.youtube.com/@pelagostours",
     "telegram": "t.me/pelagostravel",
     "rutube": "https://rutube.ru/channel/26281136/",
