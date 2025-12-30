@@ -175,9 +175,21 @@ class ExcursionsLoader:
         island, island_name = self._get_island_info(location)
 
         # Фото
+        # ИСПРАВЛЕНИЕ: сначала пробуем взять массив pics (как у индивидуальных),
+        # и только потом fallback на единичное pic
+        pics = getattr(service, 'pics', None)
         pic = getattr(service, 'pic', None)
-        logger.debug(f"Group excursion event {event.id}, service {event.service_id}: pic = {pic}")
-        photo_url = self._build_photo_url(pic)
+
+        logger.debug(f"Group excursion event {event.id}, service {event.service_id}: pics = {pics}, pic = {pic}")
+
+        # Если есть массив pics - берём первую фотографию
+        if pics and len(pics) > 0:
+            photo_url = self._build_photo_url(pics[0])
+        # Иначе пробуем единичное pic
+        elif pic:
+            photo_url = self._build_photo_url(pic)
+        else:
+            photo_url = None
 
         # Описание
         html = getattr(service, 'html', '')

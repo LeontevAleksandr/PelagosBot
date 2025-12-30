@@ -270,6 +270,8 @@ class ExcursionEvent:
             service.location = service_data.get('location')
             service.ord = service_data.get('ord', 0)
             service.pic = service_data.get('pic')
+            service.pics = service_data.get('pics', [])  # ИСПРАВЛЕНИЕ: добавляем массив фотографий
+            service.rlst = service_data.get('rlst', [])  # ИСПРАВЛЕНИЕ: добавляем расписание с ценами
 
         return cls(
             id=data.get('id'),

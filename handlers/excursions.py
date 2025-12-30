@@ -115,8 +115,14 @@ async def handle_people_count_selection(callback: CallbackQuery, state: FSMConte
             current_excursion_index=0
         )
 
-        # Удаляем сообщение с выбором количества
-        await callback.message.delete()
+        # Показываем сообщение о загрузке
+        loading_msg = await callback.message.edit_text("⏳ Подготавливаю экскурсии...")
+
+        # Небольшая задержка для плавности UX
+        try:
+            await loading_msg.delete()
+        except:
+            pass
 
         # Показываем первую экскурсию с учетом количества людей
         await show_group_excursion(callback.message, state, 0)
@@ -158,16 +164,19 @@ async def handle_people_count_selection(callback: CallbackQuery, state: FSMConte
         # Для присоединения к попутчикам
         await state.update_data(excursion_people_count=people_count)
 
+        # Показываем сообщение о загрузке
+        loading_msg = await callback.message.edit_text("⏳ Загружаю информацию об экскурсии...")
+
         data = await state.get_data()
         excursion_id = data.get("selected_excursion_id")
         excursion = await get_data_loader().get_excursion_by_id(excursion_id)
 
         if not excursion:
-            await callback.message.edit_text("❌ Ошибка: экскурсия не найдена")
+            await loading_msg.edit_text("❌ Ошибка: экскурсия не найдена")
             return
 
         keyboard = get_action_choice_keyboard("companion")
-        await callback.message.edit_text(
+        await loading_msg.edit_text(
             get_excursion_join_text(excursion["name"]),
             reply_markup=keyboard
         )
@@ -269,6 +278,9 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
 
     date = callback.data.split(":")[1]
 
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.edit_text("⏳ Загружаю экскурсии на выбранную дату...")
+
     # Получаем экскурсии на эту дату
     excursions = await get_data_loader().get_excursions_by_filters(
         island=None,
@@ -277,7 +289,7 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
     )
 
     if not excursions:
-        await callback.message.edit_text(
+        await loading_msg.edit_text(
             NO_EXCURSIONS_FOUND,
             reply_markup=get_no_group_excursions_keyboard(selected_date=date)
         )
@@ -302,7 +314,7 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
     )
 
     # Запрашиваем количество человек
-    await callback.message.edit_text(
+    await loading_msg.edit_text(
         "Сколько вас человек собирается ехать (взрослые и дети старше 7 лет)?",
         reply_markup=get_people_count_keyboard()
     )
@@ -578,6 +590,9 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
     month_str = callback.data.split(":")[1]
     year, month = map(int, month_str.split("-"))
 
+    # Показываем сообщение о загрузке
+    loading_msg = await callback.message.answer(f"⏳ Загружаю экскурсии за {MONTH_NAMES[month-1]} {year}...")
+
     # Формируем дату первого дня месяца для запроса
     first_day_of_month = f"{year:04d}-{month:02d}-01"
 
@@ -601,6 +616,10 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
                 pass
 
     if not excursions:
+        try:
+            await loading_msg.delete()
+        except:
+            pass
         await callback.answer(f"На {MONTH_NAMES_GENITIVE[month-1]} экскурсий не найдено", show_alert=True)
         return
 
@@ -622,7 +641,11 @@ async def show_group_month_excursions(callback: CallbackQuery, state: FSMContext
         group_month_page=0
     )
 
-    # Удаляем текущее сообщение
+    # Удаляем сообщения о загрузке и текущее сообщение
+    try:
+        await loading_msg.delete()
+    except:
+        pass
     try:
         await callback.message.delete()
     except:
