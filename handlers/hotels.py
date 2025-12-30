@@ -901,7 +901,7 @@ async def handle_room_count_selection(callback: CallbackQuery, state: FSMContext
         check_in=check_in_raw,
         check_out=check_out_raw
     )
-    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
+    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id), check_in=check_in_raw, check_out=check_out_raw)
 
     # Сохраняем количество комнат
     await state.update_data(room_count=room_count)
@@ -998,7 +998,7 @@ async def process_room_count(message: Message, state: FSMContext):
             check_in=check_in_raw,
             check_out=check_out_raw
         )
-        room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
+        room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id), check_in=check_in_raw, check_out=check_out_raw)
 
         # Сохраняем количество комнат
         await state.update_data(room_count=room_count)
@@ -1063,7 +1063,7 @@ async def add_hotel_to_order(callback: CallbackQuery, state: FSMContext):
         check_in=check_in,
         check_out=check_out
     )
-    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
+    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id), check_in=check_in, check_out=check_out)
 
     check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
     check_out_date = datetime.strptime(check_out, "%Y-%m-%d")
@@ -1118,7 +1118,7 @@ async def book_hotel_now(callback: CallbackQuery, state: FSMContext):
         check_in=check_in,
         check_out=check_out
     )
-    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id))
+    room = await get_data_loader().get_room_by_id(int(hotel_id), int(room_id), check_in=check_in, check_out=check_out)
 
     check_in_date = datetime.strptime(check_in, "%Y-%m-%d")
     check_out_date = datetime.strptime(check_out, "%Y-%m-%d")

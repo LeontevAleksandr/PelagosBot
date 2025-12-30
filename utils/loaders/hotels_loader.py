@@ -359,8 +359,8 @@ class HotelsLoader:
             logger.error(f"❌ Ошибка get_hotel_by_id({hotel_id}, {location_code}): {e}")
             return None
 
-    async def get_room_by_id(self, hotel_id: int, room_id: int) -> Optional[dict]:
-        
+    async def get_room_by_id(self, hotel_id: int, room_id: int, check_in: str = None, check_out: str = None) -> Optional[dict]:
+
         if not self.api:
             return None
 
@@ -391,7 +391,12 @@ class HotelsLoader:
         # Ищем нужный номер
         for room in rooms:
             if room.id == room_id:
-                return self._convert_room(room)
+                # Загружаем цену для номера, если указаны даты
+                price = None
+                if check_in and check_out:
+                    price = await self._get_room_price(room_id, check_in, check_out)
+
+                return self._convert_room(room, price)
 
         return None
 

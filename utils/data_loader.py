@@ -65,9 +65,9 @@ class DataLoader:
             check_out=check_out
         )
 
-    async def get_room_by_id(self, hotel_id: int, room_id: int) -> Optional[dict]:
-        """Получить номер по ID"""
-        return await self.hotels_loader.get_room_by_id(hotel_id=hotel_id, room_id=room_id)
+    async def get_room_by_id(self, hotel_id: int, room_id: int, check_in: str = None, check_out: str = None) -> Optional[dict]:
+        """Получить номер по ID с ценой для указанных дат"""
+        return await self.hotels_loader.get_room_by_id(hotel_id=hotel_id, room_id=room_id, check_in=check_in, check_out=check_out)
 
     async def get_all_locations(self) -> list:
         """Получить все доступные локации/острова"""
