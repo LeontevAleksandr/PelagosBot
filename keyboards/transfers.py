@@ -55,16 +55,7 @@ def get_transfer_people_count_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="4 человека", callback_data="transfer_people_count:4"),
-            InlineKeyboardButton(text="5 человек", callback_data="transfer_people_count:5"),
-            InlineKeyboardButton(text="6 человек", callback_data="transfer_people_count:6")
-        ],
-        [
-            InlineKeyboardButton(text="7 человек", callback_data="transfer_people_count:7"),
-            InlineKeyboardButton(text="8 человек", callback_data="transfer_people_count:8"),
-            InlineKeyboardButton(text="9 человек", callback_data="transfer_people_count:9")
-        ],
-        [
-            InlineKeyboardButton(text="10 и более", callback_data="transfer_people_count:10")
+            InlineKeyboardButton(text="5 и более", callback_data="transfer_people_count:5")
         ],
         [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
     ]

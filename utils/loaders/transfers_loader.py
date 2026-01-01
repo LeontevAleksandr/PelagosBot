@@ -20,6 +20,7 @@ class TransfersLoader:
         "boracay": 8,
         "panglao": 10,
         "palawan": 11,
+        "manila": 7,
         # Добавьте другие острова по необходимости
     }
 

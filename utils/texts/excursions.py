@@ -66,7 +66,7 @@ def get_group_excursion_card_text(excursion: dict, people_count: int = 1, expand
     else:
         price_line = "💵 Цена по запросу"
 
-    text = f"""**Групповая Экскурсия**
+    text = f"""****
 {excursion['name']}
 
 📍 {excursion['island_name']}
@@ -115,7 +115,7 @@ def get_private_excursion_card_text(excursion: dict, people_count: int, expanded
     else:
         price_block = "💵 Цена по запросу"
 
-    text = f"""Индивидуальная экскурсия
+    text = f"""
 {excursion['name']}
 
 📍 {excursion.get('island_name', 'Не указан')}
