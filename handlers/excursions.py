@@ -282,11 +282,21 @@ async def select_group_date(callback: CallbackQuery, state: FSMContext):
     loading_msg = await callback.message.edit_text("⏳ Загружаю экскурсии на выбранную дату...")
 
     # Получаем экскурсии на эту дату
-    excursions = await get_data_loader().get_excursions_by_filters(
+    all_excursions = await get_data_loader().get_excursions_by_filters(
         island=None,
         excursion_type="group",
         date=date
     )
+
+    # ИСПРАВЛЕНИЕ: Фильтруем только экскурсии на выбранную дату
+    # (API возвращает весь месяц, нужна дополнительная фильтрация)
+    excursions = []
+    for exc in all_excursions:
+        exc_date = exc.get("date")  # "YYYY-MM-DD"
+        if exc_date == date:
+            excursions.append(exc)
+
+    logger.info(f"🔍 Фильтрация по дате {date}: {len(all_excursions)} → {len(excursions)} экскурсий")
 
     if not excursions:
         await loading_msg.edit_text(
