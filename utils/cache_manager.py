@@ -8,6 +8,7 @@
 """
 import json
 import logging
+import os
 from typing import Optional, Any
 import redis
 from datetime import timedelta
@@ -175,7 +176,10 @@ def get_cache_manager() -> CacheManager:
     """Получить экземпляр CacheManager"""
     global _cache_manager_instance
     if _cache_manager_instance is None:
-        _cache_manager_instance = CacheManager()
+        # Читаем настройки из переменных окружения
+        host = os.getenv('REDIS_HOST', 'localhost')
+        port = int(os.getenv('REDIS_PORT', '6379'))
+        _cache_manager_instance = CacheManager(host=host, port=port)
     return _cache_manager_instance
 
 
