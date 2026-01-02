@@ -62,7 +62,7 @@ class OrderManager:
             "details": details,
             "price_usd": total_price,
             # Дополнительные данные для API
-            "service_id": int(excursion.get("id", 0)),  # ID экскурсии (используется как object_id в API)
+            "service_id": int(excursion.get("service_id", 0)),  # ID сервиса (для групповых - service_id из API, для индивидуальных - совпадает с id)
             "date": excursion.get("date"),  # Дата экскурсии (YYYY-MM-DD)
             "time": excursion.get("time"),  # Время начала (HH:MM)
             "duration": excursion.get("duration"),  # Продолжительность в минутах

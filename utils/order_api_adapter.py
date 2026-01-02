@@ -96,10 +96,13 @@ class OrderAPIAdapter:
         excursion_item: dict,
         state_data: dict
     ) -> Dict[str, Any]:
-        
+
         people_count = excursion_item.get("people_count", 1)
 
         excursion_id = excursion_item.get("service_id", 0)
+        excursion_type = excursion_item.get("excursion_type", "unknown")
+
+        logger.info(f"📋 Конвертация экскурсии: service_id={excursion_id}, type={excursion_type}, people={people_count}")
 
         excursion_date = excursion_item.get("date", "")
         excursion_time = excursion_item.get("time", "00:00")
@@ -143,6 +146,7 @@ class OrderAPIAdapter:
         if stime:
             result["stime"] = stime
 
+        logger.info(f"✅ Результат конвертации: {result}")
         return result
 
     @staticmethod
