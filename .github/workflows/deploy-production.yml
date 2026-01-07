@@ -9,5 +9,5 @@ jobs:
     steps:
       - name: Trigger deployment
         run: |
-          curl -k -f -s -S --max-time 30 "${{ secrets.DEPLOY_WEBHOOK_URL }}" || echo "⚠️ Curl failed but continuing..."
+          curl -f -s -S --max-time 30 "http://cx41.pelagos.ru/trigger/update-new-bot/5cd774bd4acf20b1e131455d03b5a8db/"
           echo "✅ Deployment webhook triggered"
