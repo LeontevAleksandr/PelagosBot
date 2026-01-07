@@ -1,12 +1,13 @@
 """Обработчики команды /start и знакомства с пользователем"""
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 
 from states.user_states import UserStates
 from keyboards import get_main_reply_keyboard, get_main_menu_keyboard
 from utils.texts import GREETING, get_main_menu_text
+from utils.version import format_version_message
 
 router = Router()
 
@@ -45,3 +46,12 @@ async def process_name(message: Message, state: FSMContext):
     
     # Переходим в состояние главного меню
     await state.set_state(UserStates.MAIN_MENU)
+
+
+@router.message(Command("head"))
+async def cmd_head(message: Message):
+    """
+    Обработчик команды /head
+    Показывает текущую версию бота (git hash)
+    """
+    await message.answer(format_version_message())
