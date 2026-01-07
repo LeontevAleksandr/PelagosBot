@@ -1,0 +1,11 @@
+name: deploy-production
+on:
+  push:
+    branches:
+      - production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deployment
+        run: curl ${{ secrets.DEPLOY_WEBHOOK_URL }}
