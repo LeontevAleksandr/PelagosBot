@@ -38,7 +38,8 @@ def get_git_branch() -> str:
 
 def get_version_info() -> dict:
     """Получить полную информацию о версии"""
-    git_hash = os.getenv('GIT_HASH', get_git_hash())
+    # Приоритет: GIT_HASH (Docker) > GIT_COMMIT (runtime) > get_git_hash() (локально)
+    git_hash = os.getenv('GIT_HASH') or os.getenv('GIT_COMMIT') or get_git_hash()
     git_branch = os.getenv('GIT_BRANCH', get_git_branch())
 
     return {

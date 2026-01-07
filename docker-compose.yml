@@ -20,7 +20,10 @@ services:
         max-file: "2"
 
   pelagos-bot:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_COMMIT: "${GIT_COMMIT}"
     container_name: pelagos-bot
     restart: unless-stopped
     depends_on:
@@ -34,6 +37,7 @@ services:
       - TZ=Asia/Manila
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - GIT_COMMIT=${GIT_COMMIT} 
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'python.*bot.py' || exit 1"]
       interval: 60s
