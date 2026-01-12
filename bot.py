@@ -16,8 +16,12 @@ from handlers import start, main_menu, profile, support, search, hotels, excursi
 
 # Инициализация Pelagos API и data_loader
 from services.pelagos_api import PelagosAPI
+from services.message_logger import MessageLogger
 from utils.data_loader import set_data_loader, get_data_loader
 from utils.preloader import init_preloader
+
+# Импорт middleware
+from middlewares import MessageLoggingMiddleware
 
 # Настройка логирования
 logging.basicConfig(
@@ -47,6 +51,10 @@ async def main():
     init_preloader(get_data_loader())
     logger.info("✅ Preloader инициализирован")
 
+    # Инициализация MessageLogger для логирования действий пользователей
+    message_logger = MessageLogger()
+    logger.info("✅ MessageLogger инициализирован")
+
     # Инициализация бота и диспетчера
     bot = Bot(
         token=BOT_TOKEN,
@@ -56,6 +64,11 @@ async def main():
     # Используем MemoryStorage для FSM
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
+
+    # Регистрация middleware для автоматического логирования
+    dp.message.middleware(MessageLoggingMiddleware(message_logger))
+    dp.callback_query.middleware(MessageLoggingMiddleware(message_logger))
+    logger.info("✅ Logging middleware зарегистрирован")
 
     # Регистрация роутеров (порядок важен!)
     dp.include_router(start.router)
