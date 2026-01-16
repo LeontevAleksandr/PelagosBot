@@ -107,7 +107,17 @@ class ExcursionsLoader:
 
         # Остров
         location = service_data.get('location', 9)
-        island, island_name = self._get_island_info(location)
+
+        # ИСПРАВЛЕНИЕ: Для индивидуальных экскурсий используем PRIVATE_ISLANDS_MAP
+        # вместо старого маппинга через _get_island_info
+        if location in self.PRIVATE_ISLANDS_MAP:
+            island_name = self.PRIVATE_ISLANDS_MAP[location]
+            # Обратный маппинг для получения кода острова (для обратной совместимости)
+            island_code_map = {v: k for k, v in self.LOCATION_MAP.items()}
+            island = island_code_map.get(location, "cebu")
+        else:
+            # Fallback на старый метод если location не найден в новом маппинге
+            island, island_name = self._get_island_info(location)
 
         # Фото
         pics = service_data.get('pics', [])

@@ -67,94 +67,98 @@ class MessageLoggingMiddleware(BaseMiddleware):
         return {}
 
     def _prepare_message_log(self, message: Message) -> Dict[str, Any]:
-        """Подготовить данные логирования для обычного сообщения"""
+        """Подготовить данные логирования для обычного сообщения в формате старого бота"""
         user = message.from_user
 
+        # Формат для старого бота
         log_data = {
-            "user_id": user.id,
-            "username": user.username or "",
-            "first_name": user.first_name or "",
-            "last_name": user.last_name or "",
-            "action": "message",
-            "text": message.text or "",
-            "message_id": message.message_id,
-            "chat_id": message.chat.id,
-            "timestamp": message.date.isoformat() if message.date else "",
+            "message": {
+                "text": message.text or "",
+                "chat_id": message.chat.id,
+                "from_user": user.username or ""
+            }
         }
-
-        # Добавляем информацию о типе сообщения
-        if message.text:
-            if message.text.startswith('/'):
-                log_data["action"] = f"command:{message.text.split()[0]}"
-            else:
-                log_data["action"] = "text_message"
-        elif message.contact:
-            log_data["action"] = "contact_shared"
-            log_data["contact_phone"] = message.contact.phone_number
-        elif message.location:
-            log_data["action"] = "location_shared"
-        elif message.photo:
-            log_data["action"] = "photo_sent"
-        elif message.document:
-            log_data["action"] = "document_sent"
 
         return log_data
 
     def _prepare_callback_log(self, callback: CallbackQuery) -> Dict[str, Any]:
-        """Подготовить данные логирования для callback-запроса"""
+        """Подготовить данные логирования для callback-запроса в формате старого бота"""
         user = callback.from_user
 
+        # Формат для старого бота
         log_data = {
-            "user_id": user.id,
-            "username": user.username or "",
-            "first_name": user.first_name or "",
-            "last_name": user.last_name or "",
-            "action": f"callback:{callback.data}",
-            "callback_data": callback.data or "",
-            "message_id": callback.message.message_id if callback.message else 0,
-            "chat_id": callback.message.chat.id if callback.message else 0,
-            "timestamp": "",  # CallbackQuery не имеет date
+            "callback_query": {
+                "id": str(callback.id),
+                "data": callback.data or "",
+                "chat_id": callback.message.chat.id if callback.message else 0,
+                "from_user": user.username or ""
+            }
         }
 
         return log_data
 
 
-class BotResponseLoggingMiddleware:
+def setup_message_logging(bot, message_logger):
     """
-    Middleware для логирования исходящих сообщений от бота
+    Настроить логирование исходящих сообщений через monkey patching
 
-    Этот middleware перехватывает вызовы bot.send_message и других методов отправки
+    Args:
+        bot: Экземпляр Bot
+        message_logger: Экземпляр MessageLogger
     """
+    logger_instance = logging.getLogger(__name__)
 
-    def __init__(self, message_logger):
-        """
-        Args:
-            message_logger: Экземпляр MessageLogger из services.message_logger
-        """
-        self.message_logger = message_logger
-        self.logger = logging.getLogger(__name__)
+    # Сохраняем оригинальные методы
+    original_send_message = bot.send_message
+    original_edit_message_text = bot.edit_message_text
 
-    async def __call__(self, handler, event, data):
-        """Базовый middleware для перехвата исходящих сообщений"""
-        # Этот middleware работает на уровне бота, а не роутера
-        # Его нужно регистрировать отдельно для перехвата исходящих сообщений
-        result = await handler(event, data)
-
-        # После выполнения обработчика логируем результат
+    async def logged_send_message(chat_id, text, **kwargs):
+        """Обёртка для send_message с логированием"""
         try:
-            if result and hasattr(result, 'text'):
-                # Это ответное сообщение от бота
-                log_data = {
-                    "bot_id": result.from_user.id if hasattr(result, 'from_user') else 0,
-                    "chat_id": result.chat.id if hasattr(result, 'chat') else 0,
-                    "text": result.text or "",
-                    "message_id": result.message_id if hasattr(result, 'message_id') else 0,
-                    "action": "bot_response",
-                    "timestamp": result.date.isoformat() if hasattr(result, 'date') and result.date else "",
-                }
-                self.message_logger.log_sent(log_data)
-                self.logger.debug(f"📤 Logged sent: bot_response")
-        except Exception as e:
-            self.logger.error(f"❌ Ошибка логирования исходящего сообщения: {e}", exc_info=True)
+            result = await original_send_message(chat_id, text, **kwargs)
 
-        return result
+            # Логируем исходящее сообщение в формате старого бота
+            log_data = {
+                "message": {
+                    "text": text,
+                    "chat_id": chat_id
+                }
+            }
+            message_logger.log_sent(log_data)
+            logger_instance.debug(f"📤 Logged sent message to chat {chat_id}")
+
+            return result
+        except Exception as e:
+            logger_instance.error(f"❌ Ошибка при отправке/логировании сообщения: {e}", exc_info=True)
+            raise
+
+    async def logged_edit_message_text(text, chat_id=None, message_id=None, inline_message_id=None, **kwargs):
+        """Обёртка для edit_message_text с логированием"""
+        try:
+            result = await original_edit_message_text(
+                text=text,
+                chat_id=chat_id,
+                message_id=message_id,
+                inline_message_id=inline_message_id,
+                **kwargs
+            )
+
+            # Логируем изменённое сообщение
+            if chat_id:
+                log_data = {
+                    "message": {
+                        "text": text,
+                        "chat_id": chat_id
+                    }
+                }
+                message_logger.log_sent(log_data)
+                logger_instance.debug(f"📤 Logged edited message in chat {chat_id}")
+
+            return result
+        except Exception as e:
+            logger_instance.error(f"❌ Ошибка при редактировании/логировании сообщения: {e}", exc_info=True)
+            raise
+
+    # Заменяем методы бота на обёртки
+    bot.send_message = logged_send_message
+    bot.edit_message_text = logged_edit_message_text

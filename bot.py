@@ -21,7 +21,7 @@ from utils.data_loader import set_data_loader, get_data_loader
 from utils.preloader import init_preloader
 
 # Импорт middleware
-from middlewares import MessageLoggingMiddleware
+from middlewares import MessageLoggingMiddleware, setup_message_logging
 
 # Настройка логирования
 logging.basicConfig(
@@ -60,6 +60,10 @@ async def main():
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
+
+    # Настраиваем логирование исходящих сообщений
+    setup_message_logging(bot, message_logger)
+    logger.info("✅ Логирование исходящих сообщений настроено")
 
     # Используем MemoryStorage для FSM
     storage = MemoryStorage()

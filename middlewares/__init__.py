@@ -1,1 +1,1 @@
-from .logging_middleware import MessageLoggingMiddleware, BotResponseLoggingMiddleware
+from .logging_middleware import MessageLoggingMiddleware, setup_message_logging
