@@ -453,7 +453,6 @@ async def display_excursion_results(message: Message, query: str, results: list,
     # Для индивидуальных экскурсий используем существующий флоу
     if excursion_type == "private":
         # Импортируем необходимые функции
-        from handlers.excursions import send_private_excursions_cards_page
         from utils.loaders.excursions_loader import ExcursionsLoader
 
         # Преобразуем словари в формат для обработчика
@@ -466,37 +465,43 @@ async def display_excursion_results(message: Message, query: str, results: list,
             if exc_dict:
                 excursions_dict.append(exc_dict)
 
-        # Устанавливаем дефолтное количество человек
-        people_count = data.get('people_count', 1)
-
-        # Устанавливаем данные для флоу экскурсий
+        # Сохраняем найденные экскурсии
         await state.update_data(
             search_query=query,
             filtered_excursions=excursions_dict,
             excursions=excursions_dict,
-            people_count=people_count,
             excursion_type=excursion_type
         )
 
-        # Переводим в состояние просмотра результатов
-        await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
-
         # Показываем информационное сообщение
-        info_text = (
-            f"🔍 <b>Найдено {len(results)} экскурси(й/и)</b> по запросу <b>\"{query}\"</b>\n\n"
-            f"Загружаю результаты..."
-        )
+        info_text = f"🔍 <b>Найдено {len(results)} экскурси(й/и)</b> по запросу <b>\"{query}\"</b>\n\n"
         await message.answer(info_text)
 
-        # Используем существующую функцию для отображения первой страницы
-        await send_private_excursions_cards_page(message, state, page=1)
+        # ИСПРАВЛЕНИЕ: Запрашиваем количество человек (как в обычном флоу)
+        from handlers.excursions import get_people_count_keyboard
+        from utils.texts import EXCURSIONS_PRIVATE_INTRO
+
+        await message.answer(
+            EXCURSIONS_PRIVATE_INTRO,
+            reply_markup=get_people_count_keyboard()
+        )
+        await state.set_state(UserStates.SEARCH_PRIVATE_INPUT_PEOPLE)
 
     # Для групповых и попутчиков экскурсии уже в формате dict
     elif excursion_type in ["group", "companions"]:
-        # Импортируем необходимую функцию
-        from handlers.excursions import show_group_excursion
+        # ИСПРАВЛЕНИЕ: Дозагружаем цены для групповых экскурсий
+        if excursion_type == "group":
+            logger.info(f"📊 Дозагрузка цен для {len(excursions)} найденных групповых экскурсий...")
+            loader = get_data_loader()
+            for excursion in excursions:
+                if not excursion.get('price_usd') or excursion.get('price_usd') == 0:
+                    full_excursion = await loader.get_excursion_by_id(excursion['id'])
+                    if full_excursion and full_excursion.get('price_usd'):
+                        excursion['price'] = full_excursion['price_usd']
+                        excursion['price_usd'] = full_excursion['price_usd']
+                        logger.info(f"   ✓ {excursion['name']}: ${full_excursion['price_usd']} за чел")
 
-        # Устанавливаем данные для флоу экскурсий
+        # Сохраняем найденные экскурсии
         await state.update_data(
             search_query=query,
             filtered_excursions=excursions,
@@ -505,18 +510,24 @@ async def display_excursion_results(message: Message, query: str, results: list,
             excursion_type=excursion_type
         )
 
-        # Переводим в состояние просмотра результатов
-        await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
-
         # Показываем информационное сообщение
-        info_text = (
-            f"🔍 <b>Найдено {len(results)} экскурси(й/и)</b> по запросу <b>\"{query}\"</b>\n\n"
-            f"Загружаю результаты..."
-        )
+        info_text = f"🔍 <b>Найдено {len(results)} экскурси(й/и)</b> по запросу <b>\"{query}\"</b>\n\n"
         await message.answer(info_text)
 
-        # Используем функцию для отображения первой групповой экскурсии
-        await show_group_excursion(message, state, 0)
+        # ИСПРАВЛЕНИЕ: Для групповых экскурсий запрашиваем количество людей (как в обычном флоу)
+        if excursion_type == "group":
+            from handlers.excursions import get_people_count_keyboard
+
+            await message.answer(
+                "Сколько вас человек собирается ехать (взрослые и дети старше 7 лет)?",
+                reply_markup=get_people_count_keyboard()
+            )
+            await state.set_state(UserStates.SEARCH_GROUP_INPUT_PEOPLE)
+        else:
+            # Для попутчиков показываем сразу
+            from handlers.excursions import show_group_excursion
+            await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
+            await show_group_excursion(message, state, 0)
 
     # Неизвестный тип
     else:

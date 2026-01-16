@@ -214,6 +214,49 @@ async def handle_people_count_selection(callback: CallbackQuery, state: FSMConte
                 reply_markup=get_back_to_main_keyboard()
             )
 
+    elif current_state == UserStates.SEARCH_GROUP_INPUT_PEOPLE:
+        # НОВОЕ: Для найденных через поиск групповых экскурсий
+        await state.update_data(
+            excursion_people_count=people_count,
+            current_excursion_index=0
+        )
+
+        # Показываем сообщение о загрузке
+        loading_msg = await callback.message.edit_text("⏳ Подготавливаю экскурсии...")
+
+        try:
+            await loading_msg.delete()
+        except:
+            pass
+
+        # Переводим в состояние просмотра результатов
+        await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
+
+        # Показываем первую экскурсию с учетом количества людей
+        await show_group_excursion(callback.message, state, 0)
+
+    elif current_state == UserStates.SEARCH_PRIVATE_INPUT_PEOPLE:
+        # НОВОЕ: Для найденных через поиск индивидуальных экскурсий
+        await state.update_data(
+            people_count=people_count,
+            current_excursion_index=0
+        )
+
+        # Показываем сообщение о загрузке
+        loading_msg = await callback.message.edit_text("⏳ Загружаю экскурсии...")
+
+        try:
+            await loading_msg.delete()
+        except:
+            pass
+
+        # Переводим в состояние просмотра результатов
+        await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
+
+        # Показываем первую страницу с экскурсиями
+        from handlers.excursions import send_private_excursions_cards_page
+        await send_private_excursions_cards_page(callback.message, state, page=1)
+
 
 # ========== Старт флоу экскурсий ==========
 

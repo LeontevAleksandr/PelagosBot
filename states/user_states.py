@@ -57,6 +57,8 @@ class UserStates(StatesGroup):
     SEARCH_SELECT_CATEGORY = State()
     SEARCH_EXCURSIONS_SELECT_TYPE = State()  # Выбор типа экскурсии для поиска
     SEARCH_INPUT_QUERY = State()
+    SEARCH_GROUP_INPUT_PEOPLE = State()  # Ввод количества людей для найденных групповых экскурсий
+    SEARCH_PRIVATE_INPUT_PEOPLE = State()  # Ввод количества людей для найденных индивидуальных экскурсий
     SEARCH_SHOW_RESULTS = State()
 
     # Прочее
