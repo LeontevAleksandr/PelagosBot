@@ -61,10 +61,6 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
 
-    # Настраиваем логирование исходящих сообщений
-    setup_message_logging(bot, message_logger)
-    logger.info("✅ Логирование исходящих сообщений настроено")
-
     # Используем MemoryStorage для FSM
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
@@ -85,6 +81,10 @@ async def main():
     dp.include_router(transfers.router)  # Флоу трансферов
     dp.include_router(support.router)
     dp.include_router(search.router)  # Должен быть последним для перехвата текста
+
+    # Настраиваем логирование исходящих сообщений
+    setup_message_logging(bot, message_logger)
+    logger.info("✅ Логирование исходящих сообщений настроено")
 
     logger.info("✅ Бот запущен")
 

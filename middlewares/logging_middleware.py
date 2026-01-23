@@ -40,16 +40,13 @@ class MessageLoggingMiddleware(BaseMiddleware):
         try:
             log_data = self._prepare_received_log(event)
             if log_data:
-                # Создаём фоновую задачу для логирования
                 task = asyncio.create_task(
                     self.message_logger._send_log(log_data, self.message_logger.received_endpoint)
                 )
                 background_logging_tasks.add(task)
                 task.add_done_callback(background_logging_tasks.discard)
-                
-                logger.debug(f"📥 Logged received: {log_data.get('message', {}).get('text', 'callback')}")
         except Exception as e:
-            logger.error(f"❌ Ошибка логирования входящего события: {e}", exc_info=True)
+            logger.error(f"Ошибка логирования входящего события: {e}")
 
         # Вызываем следующий обработчик
         result = await handler(event, data)
@@ -57,15 +54,7 @@ class MessageLoggingMiddleware(BaseMiddleware):
         return result
 
     def _prepare_received_log(self, event: TelegramObject) -> Dict[str, Any]:
-        """
-        Подготовить данные для логирования входящего события
-
-        Args:
-            event: Message или CallbackQuery
-
-        Returns:
-            Словарь с данными для логирования
-        """
+        """Подготовить данные для логирования входящего события"""
         if isinstance(event, Message):
             return self._prepare_message_log(event)
         elif isinstance(event, CallbackQuery):
@@ -73,11 +62,9 @@ class MessageLoggingMiddleware(BaseMiddleware):
         return {}
 
     def _prepare_message_log(self, message: Message) -> Dict[str, Any]:
-        """Подготовить данные логирования для обычного сообщения в формате старого бота"""
+        """Подготовить данные логирования для обычного сообщения"""
         user = message.from_user
-
-        # Формат для старого бота
-        log_data = {
+        return {
             "message": {
                 "text": message.text or "",
                 "chat_id": message.chat.id,
@@ -85,14 +72,10 @@ class MessageLoggingMiddleware(BaseMiddleware):
             }
         }
 
-        return log_data
-
     def _prepare_callback_log(self, callback: CallbackQuery) -> Dict[str, Any]:
-        """Подготовить данные логирования для callback-запроса в формате старого бота"""
+        """Подготовить данные логирования для callback-запроса"""
         user = callback.from_user
-
-        # Формат для старого бота
-        log_data = {
+        return {
             "callback_query": {
                 "id": str(callback.id),
                 "data": callback.data or "",
@@ -100,8 +83,6 @@ class MessageLoggingMiddleware(BaseMiddleware):
                 "from_user": user.username or ""
             }
         }
-
-        return log_data
 
 
 def setup_message_logging(bot, message_logger):
@@ -112,73 +93,34 @@ def setup_message_logging(bot, message_logger):
         bot: Экземпляр Bot
         message_logger: Экземпляр MessageLogger
     """
-    logger_instance = logging.getLogger(__name__)
+    original_answer = Message.answer
+    original_edit_text = Message.edit_text
 
-    # Сохраняем оригинальные методы
-    original_send_message = bot.send_message
-    original_edit_message_text = bot.edit_message_text
+    async def logged_answer(self, text, **kwargs):
+        """Обёртка для message.answer()"""
+        result = await original_answer(self, text, **kwargs)
+        
+        log_data = {"message": {"text": text, "chat_id": self.chat.id}}
+        task = asyncio.create_task(
+            message_logger._send_log(log_data, message_logger.sent_endpoint)
+        )
+        background_logging_tasks.add(task)
+        task.add_done_callback(background_logging_tasks.discard)
+        
+        return result
 
-    async def logged_send_message(chat_id, text, **kwargs):
-        """Обёртка для send_message с логированием"""
-        try:
-            result = await original_send_message(chat_id, text, **kwargs)
+    async def logged_edit_text(self, text, **kwargs):
+        """Обёртка для message.edit_text()"""
+        result = await original_edit_text(self, text, **kwargs)
+        
+        log_data = {"message": {"text": text, "chat_id": self.chat.id}}
+        task = asyncio.create_task(
+            message_logger._send_log(log_data, message_logger.sent_endpoint)
+        )
+        background_logging_tasks.add(task)
+        task.add_done_callback(background_logging_tasks.discard)
+        
+        return result
 
-            # Логируем исходящее сообщение в формате старого бота
-            log_data = {
-                "message": {
-                    "text": text,
-                    "chat_id": chat_id
-                }
-            }
-            
-            # Создаём фоновую задачу для логирования (неблокирующее)
-            task = asyncio.create_task(
-                message_logger._send_log(log_data, message_logger.sent_endpoint)
-            )
-            background_logging_tasks.add(task)
-            task.add_done_callback(background_logging_tasks.discard)
-            
-            logger_instance.debug(f"📤 Logged sent message to chat {chat_id}")
-
-            return result
-        except Exception as e:
-            logger_instance.error(f"❌ Ошибка при отправке/логировании сообщения: {e}", exc_info=True)
-            raise
-
-    async def logged_edit_message_text(text, chat_id=None, message_id=None, inline_message_id=None, **kwargs):
-        """Обёртка для edit_message_text с логированием"""
-        try:
-            result = await original_edit_message_text(
-                text=text,
-                chat_id=chat_id,
-                message_id=message_id,
-                inline_message_id=inline_message_id,
-                **kwargs
-            )
-
-            # Логируем изменённое сообщение
-            if chat_id:
-                log_data = {
-                    "message": {
-                        "text": text,
-                        "chat_id": chat_id
-                    }
-                }
-                
-                # Создаём фоновую задачу для логирования (неблокирующее)
-                task = asyncio.create_task(
-                    message_logger._send_log(log_data, message_logger.sent_endpoint)
-                )
-                background_logging_tasks.add(task)
-                task.add_done_callback(background_logging_tasks.discard)
-                
-                logger_instance.debug(f"📤 Logged edited message in chat {chat_id}")
-
-            return result
-        except Exception as e:
-            logger_instance.error(f"❌ Ошибка при редактировании/логировании сообщения: {e}", exc_info=True)
-            raise
-
-    # Заменяем методы бота на обёртки
-    bot.send_message = logged_send_message
-    bot.edit_message_text = logged_edit_message_text
+    Message.answer = logged_answer
+    Message.edit_text = logged_edit_text
