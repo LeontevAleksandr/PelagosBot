@@ -1,10 +1,14 @@
 """Middleware для автоматического логирования всех действий пользователей"""
 import logging
+import asyncio
 from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
 
 logger = logging.getLogger(__name__)
+
+# Глобальное хранилище фоновых задач для логирования
+background_logging_tasks = set()
 
 
 class MessageLoggingMiddleware(BaseMiddleware):
@@ -36,17 +40,19 @@ class MessageLoggingMiddleware(BaseMiddleware):
         try:
             log_data = self._prepare_received_log(event)
             if log_data:
-                self.message_logger.log_received(log_data)
-                logger.debug(f"📥 Logged received: {log_data.get('action', 'unknown')}")
+                # Создаём фоновую задачу для логирования
+                task = asyncio.create_task(
+                    self.message_logger._send_log(log_data, self.message_logger.received_endpoint)
+                )
+                background_logging_tasks.add(task)
+                task.add_done_callback(background_logging_tasks.discard)
+                
+                logger.debug(f"📥 Logged received: {log_data.get('message', {}).get('text', 'callback')}")
         except Exception as e:
             logger.error(f"❌ Ошибка логирования входящего события: {e}", exc_info=True)
 
         # Вызываем следующий обработчик
         result = await handler(event, data)
-
-        # Логируем исходящий ответ (если бот что-то отправил)
-        # Примечание: aiogram автоматически отправляет ответы, поэтому
-        # логирование исходящих сообщений лучше делать через хук на bot.send_message
 
         return result
 
@@ -124,7 +130,14 @@ def setup_message_logging(bot, message_logger):
                     "chat_id": chat_id
                 }
             }
-            message_logger.log_sent(log_data)
+            
+            # Создаём фоновую задачу для логирования (неблокирующее)
+            task = asyncio.create_task(
+                message_logger._send_log(log_data, message_logger.sent_endpoint)
+            )
+            background_logging_tasks.add(task)
+            task.add_done_callback(background_logging_tasks.discard)
+            
             logger_instance.debug(f"📤 Logged sent message to chat {chat_id}")
 
             return result
@@ -151,7 +164,14 @@ def setup_message_logging(bot, message_logger):
                         "chat_id": chat_id
                     }
                 }
-                message_logger.log_sent(log_data)
+                
+                # Создаём фоновую задачу для логирования (неблокирующее)
+                task = asyncio.create_task(
+                    message_logger._send_log(log_data, message_logger.sent_endpoint)
+                )
+                background_logging_tasks.add(task)
+                task.add_done_callback(background_logging_tasks.discard)
+                
                 logger_instance.debug(f"📤 Logged edited message in chat {chat_id}")
 
             return result
