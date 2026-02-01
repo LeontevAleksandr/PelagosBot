@@ -301,38 +301,27 @@ async def search_excursions(query: str, excursion_type: str = "private") -> list
         if excursion_type == "private":
             api = PelagosAPI(api_key=os.getenv("PELAGOS_API_KEY"))
 
-            # Получаем индивидуальные экскурсии со всех островов
+            # Получаем индивидуальные экскурсии со ВСЕХ островов одним запросом
             from datetime import datetime, timedelta
             tomorrow = datetime.now() + timedelta(days=1)
             api_date = tomorrow.strftime("%d.%m.%Y")
 
-            all_services = []
-            location_ids = [9, 10, 8, 11]  # cebu, bohol, boracay, palawan
-
-            for location_id in location_ids:
-                services = await api.get_private_excursions(
-                    location_id=location_id,
-                    date=api_date
-                )
-                all_services.extend(services)
+            # location_id=0 означает ВСЕ острова (включая Манилу, Корон, Минданао и др.)
+            all_services = await api.get_private_excursions(
+                location_id=0,
+                date=api_date
+            )
 
             excursions = all_services
             await api.close()
 
         # Для групповых и попутчиков - получаем через загрузчик
         elif excursion_type in ["group", "companions"]:
-            # Получаем экскурсии со всех островов
-            all_excursions = []
-            islands = ["cebu", "bohol", "boracay", "palawan"]
-
-            for island in islands:
-                island_excursions = await loader.get_excursions_by_filters(
-                    island=island,
-                    excursion_type=excursion_type
-                )
-                all_excursions.extend(island_excursions)
-
-            excursions = all_excursions
+            # Получаем экскурсии island=None означает загрузку всех доступных островов
+            excursions = await loader.get_excursions_by_filters(
+                island=None,
+                excursion_type=excursion_type
+            )
         else:
             return []
 
@@ -514,15 +503,14 @@ async def display_excursion_results(message: Message, query: str, results: list,
         info_text = f"🔍 <b>Найдено {len(results)} экскурси(й/и)</b> по запросу <b>\"{query}\"</b>\n\n"
         await message.answer(info_text)
 
-        # ИСПРАВЛЕНИЕ: Для групповых экскурсий запрашиваем количество людей (как в обычном флоу)
+        # Для групповых экскурсий устанавливаем количество людей = 1 по умолчанию
         if excursion_type == "group":
-            from handlers.excursions import get_people_count_keyboard
+            from handlers.excursions import show_group_excursion
 
-            await message.answer(
-                "Сколько вас человек собирается ехать (взрослые и дети старше 7 лет)?",
-                reply_markup=get_people_count_keyboard()
-            )
-            await state.set_state(UserStates.SEARCH_GROUP_INPUT_PEOPLE)
+            # Устанавливаем количество людей = 1 (пользователь может изменить позже)
+            await state.update_data(excursion_people_count=1)
+            await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
+            await show_group_excursion(message, state, 0)
         else:
             # Для попутчиков показываем сразу
             from handlers.excursions import show_group_excursion

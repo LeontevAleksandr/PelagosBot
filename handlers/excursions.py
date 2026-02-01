@@ -475,7 +475,7 @@ async def navigate_group_excursions(callback: CallbackQuery, state: FSMContext):
 
 
 async def send_excursions_cards_page(message: Message, state: FSMContext, page: int):
-    """Отправ��ть страницу с экскурсиями (по 5 штук)"""
+    """Отправить страницу с экскурсиями (по 5 штук)"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
     people_count = data.get("excursion_people_count", 1)

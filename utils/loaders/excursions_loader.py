@@ -182,7 +182,16 @@ class ExcursionsLoader:
 
         # Остров
         location = getattr(service, 'location', 9)
-        island, island_name = self._get_island_info(location)
+
+        # ИСПРАВЛЕНИЕ: Используем PRIVATE_ISLANDS_MAP для всех островов
+        if location in self.PRIVATE_ISLANDS_MAP:
+            island_name = self.PRIVATE_ISLANDS_MAP[location]
+            # Обратный маппинг для получения кода острова (для обратной совместимости)
+            island_code_map = {v: k for k, v in self.LOCATION_MAP.items()}
+            island = island_code_map.get(location, "cebu")
+        else:
+            # Fallback на старый метод если location не найден в новом маппинге
+            island, island_name = self._get_island_info(location)
 
         # Фото
         # ИСПРАВЛЕНИЕ: сначала пробуем взять массив pics (как у индивидуальных),
@@ -284,7 +293,16 @@ class ExcursionsLoader:
 
         # Остров
         location = service.get('location', 9)
-        island, island_name = self._get_island_info(location)
+
+        # ИСПРАВЛЕНИЕ: Используем PRIVATE_ISLANDS_MAP для всех островов
+        if location in self.PRIVATE_ISLANDS_MAP:
+            island_name = self.PRIVATE_ISLANDS_MAP[location]
+            # Обратный маппинг для получения кода острова (для обратной совместимости)
+            island_code_map = {v: k for k, v in self.LOCATION_MAP.items()}
+            island = island_code_map.get(location, "cebu")
+        else:
+            # Fallback на старый метод если location не найден в новом маппинге
+            island, island_name = self._get_island_info(location)
 
         # Фото
         photo_url = self._build_photo_url(service.get('pic'))
