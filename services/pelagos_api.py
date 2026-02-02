@@ -551,6 +551,32 @@ class PelagosAPI:
 
         return data.get("row")
 
+    # === ЦЕНЫ УСЛУГ (трансферы, экскурсии) ===
+
+    async def get_service_prices(self, service_id: int) -> List[Dict[str, Any]]:
+        """
+        Получить цены услуги (трансфера, экскурсии и т.п.)
+
+        Args:
+            service_id: ID услуги
+
+        Returns:
+            Список ценников с plst (список цен для разного кол-ва людей)
+        """
+        endpoint = f"export-services-prices/{service_id}/"
+        logger.info(f"🌐 API запрос цен услуги: {endpoint}")
+
+        data = await self.client.get(endpoint)
+
+        if not data or data.get("code") != "OK":
+            logger.warning(f"⚠️ Не удалось получить цены для услуги {service_id}")
+            return []
+
+        prices = data.get("prices", [])
+        logger.debug(f"📦 Получено {len(prices)} ценников для услуги {service_id}")
+
+        return prices
+
     # === ТРАНСФЕРЫ ===
 
     async def get_transfers(

@@ -153,6 +153,17 @@ async def show_transfer_card(message: Message, state: FSMContext, index: int):
         return
 
     transfer = transfers[index]
+
+    # Загружаем цены для трансфера, если ещё не загружены
+    if not transfer.get('prices_loaded'):
+        loader = get_data_loader()
+        transfer_with_prices = await loader.transfers_loader.get_transfer_with_prices(transfer['id'])
+        if transfer_with_prices:
+            transfer = transfer_with_prices
+            # Обновляем трансфер в списке и сохраняем в state
+            transfers[index] = transfer
+            await state.update_data(transfers=transfers)
+
     card_text = get_transfer_card_text(transfer, people_count)
 
     # Используем новую клавиатуру с кнопкой "Показать все"
@@ -188,6 +199,23 @@ async def send_transfers_cards_page(message: Message, state: FSMContext, page: i
 
     if not transfers:
         return
+
+    # Загружаем цены для трансферов на текущей странице
+    per_page = 5
+    start_idx = (page - 1) * per_page
+    end_idx = min(start_idx + per_page, len(transfers))
+    loader = get_data_loader()
+
+    updated = False
+    for i in range(start_idx, end_idx):
+        if not transfers[i].get('prices_loaded'):
+            transfer_with_prices = await loader.transfers_loader.get_transfer_with_prices(transfers[i]['id'])
+            if transfer_with_prices:
+                transfers[i] = transfer_with_prices
+                updated = True
+
+    if updated:
+        await state.update_data(transfers=transfers)
 
     # Функция форматирования карточки
     def format_card(transfer):
@@ -250,7 +278,8 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     transfer_id = callback.data.split(":")[1]
-    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
+    # Используем метод с загрузкой цен
+    transfer = await get_data_loader().transfers_loader.get_transfer_with_prices(transfer_id)
 
     if not transfer:
         return
@@ -269,12 +298,13 @@ async def book_transfer(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "transfer:add_to_order")
 async def add_transfer_to_order(callback: CallbackQuery, state: FSMContext):
     """Добавить трансфер в заказ"""
-    await callback.answer("Добавлено в заказ! 🛒")
+    await callback.answer("Добавлено в заказ!")
 
     data = await state.get_data()
     transfer_id = data.get("selected_transfer_id")
     people_count = data.get("people_count", 1)
-    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
+    # Используем метод с загрузкой цен
+    transfer = await get_data_loader().transfers_loader.get_transfer_with_prices(transfer_id)
 
     if not transfer:
         return
@@ -296,10 +326,11 @@ async def book_transfer_now(callback: CallbackQuery, state: FSMContext):
     transfer_id = data.get("selected_transfer_id")
     people_count = data.get("transfer_people_count", 1)
 
-    transfer = await get_data_loader().get_transfer_by_id(transfer_id)
+    # Используем метод с загрузкой цен
+    transfer = await get_data_loader().transfers_loader.get_transfer_with_prices(transfer_id)
 
     if not transfer:
-        await callback.answer("❌ Трансфер не найден", show_alert=True)
+        await callback.answer("Трансфер не найден", show_alert=True)
         return
 
     # Добавляем в заказ

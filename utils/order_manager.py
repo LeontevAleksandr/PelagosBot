@@ -96,7 +96,30 @@ class OrderManager:
         """Добавить трансфер в заказ"""
         order = state_data.get("order", [])
 
-        total_price = transfer["price_per_person_usd"] * people_count
+        # Используем price_list для получения правильной цены
+        price_list = transfer.get("price_list", {})
+        price_per_person = None
+
+        if price_list:
+            # Ищем цену для указанного количества людей
+            if people_count in price_list:
+                price_per_person = price_list[people_count]
+            else:
+                # Ищем ближайшее большее значение grp
+                available_grps = sorted(price_list.keys())
+                for grp in available_grps:
+                    if grp >= people_count:
+                        price_per_person = price_list[grp]
+                        break
+                # Если не нашли, берём максимальный grp
+                if price_per_person is None and available_grps:
+                    price_per_person = price_list[max(available_grps)]
+
+        # Fallback на старую логику
+        if price_per_person is None:
+            price_per_person = transfer.get("price_per_person_usd") or 0
+
+        total_price = price_per_person * people_count
 
         order.append({
             "type": "transfer",

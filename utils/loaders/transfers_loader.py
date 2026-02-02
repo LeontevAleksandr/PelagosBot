@@ -1,6 +1,6 @@
 """Загрузчик данных для трансферов"""
 import logging
-from typing import Optional
+from typing import Optional, Dict, List
 from services.pelagos_api import PelagosAPI
 from utils.cache_manager import get_cache_manager
 
@@ -32,6 +32,53 @@ class TransfersLoader:
         """
         self.api = api
         self.cache = get_cache_manager()
+
+    def _extract_price_list_from_plst(self, plst: List[Dict]) -> Dict[int, float]:
+        """
+        Извлечь список цен для разного количества человек из plst
+
+        Args:
+            plst: массив из API с ценами [{grp: 1, price: 50}, {grp: 2, price: 25}, ...]
+
+        Returns:
+            dict: {количество_людей: цена_за_человека}
+        """
+        price_list = {}
+        for item in plst:
+            grp = item.get('grp')
+            price = item.get('price')
+            if grp and price is not None:
+                price_list[grp] = float(price)
+        return price_list
+
+    async def _load_transfer_prices(self, transfer_id: int) -> Dict[int, float]:
+        """
+        Загрузить цены для трансфера по его ID
+
+        Args:
+            transfer_id: ID трансфера
+
+        Returns:
+            dict: {количество_людей: цена_за_человека}
+        """
+        try:
+            prices_data = await self.api.get_service_prices(transfer_id)
+
+            if not prices_data:
+                return {}
+
+            # Объединяем plst из всех ценников (prices может быть несколько)
+            combined_price_list = {}
+            for price_entry in prices_data:
+                plst = price_entry.get('plst', [])
+                price_list = self._extract_price_list_from_plst(plst)
+                # Обновляем, более новые записи перезапишут старые
+                combined_price_list.update(price_list)
+
+            return combined_price_list
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось загрузить цены для трансфера {transfer_id}: {e}")
+            return {}
 
     async def get_transfers_by_island(self, island: str = None) -> list:
         """
@@ -106,8 +153,11 @@ class TransfersLoader:
                     'score': transfer.score,
                     # Добавляем недостающие поля для совместимости
                     'description': description,
-                    'price_per_person_usd': 25,  # Дефолтная цена, т.к. в API нет прямых цен для трансферов
-                    'base_price_usd': 25
+                    # Цены будут загружены отдельно через get_transfer_with_prices()
+                    'price_per_person_usd': None,  # Будет заполнено при загрузке цен
+                    'base_price_usd': None,
+                    'price_list': {},  # {grp: price} - цены для разного кол-ва людей
+                    'prices_loaded': False  # Флаг, что цены ещё не загружены
                 }
 
                 # Извлекаем URL первого фото, если есть
@@ -135,7 +185,7 @@ class TransfersLoader:
 
     async def get_transfer_by_id(self, transfer_id: str) -> Optional[dict]:
         """
-        Получить трансфер по ID
+        Получить трансфер по ID (без цен)
 
         Args:
             transfer_id: ID трансфера
@@ -174,3 +224,79 @@ class TransfersLoader:
         except Exception as e:
             logger.error(f"❌ Ошибка получения трансфера {transfer_id}: {e}")
             return None
+
+    async def get_transfer_with_prices(self, transfer_id: str) -> Optional[dict]:
+        """
+        Получить трансфер по ID с загрузкой цен из API
+
+        Args:
+            transfer_id: ID трансфера
+
+        Returns:
+            dict: словарь с информацией о трансфере и ценами или None
+        """
+        # Сначала получаем базовую информацию о трансфере
+        transfer = await self.get_transfer_by_id(transfer_id)
+        if not transfer:
+            return None
+
+        # Если цены уже загружены - возвращаем как есть
+        if transfer.get('prices_loaded'):
+            return transfer
+
+        # Загружаем цены
+        try:
+            price_list = await self._load_transfer_prices(int(transfer_id))
+
+            if price_list:
+                transfer['price_list'] = price_list
+                # Устанавливаем базовую цену (для 1 человека)
+                transfer['price_per_person_usd'] = price_list.get(1, 0)
+                transfer['base_price_usd'] = price_list.get(1, 0)
+                transfer['prices_loaded'] = True
+
+                logger.info(f"💰 Загружены цены для трансфера {transfer_id}: {price_list}")
+            else:
+                logger.warning(f"⚠️ Цены для трансфера {transfer_id} не найдены в API")
+                # Оставляем None, чтобы было понятно что цен нет
+
+            return transfer
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки цен для трансфера {transfer_id}: {e}")
+            return transfer
+
+    def get_price_for_people_count(self, transfer: dict, people_count: int) -> float:
+        """
+        Получить цену трансфера для указанного количества людей
+
+        Args:
+            transfer: словарь трансфера
+            people_count: количество человек
+
+        Returns:
+            float: цена за человека для данного количества людей
+        """
+        price_list = transfer.get('price_list', {})
+
+        if not price_list:
+            # Если нет списка цен, вернуть базовую цену или 0
+            return transfer.get('price_per_person_usd') or 0
+
+        # Ищем точное совпадение по количеству людей
+        if people_count in price_list:
+            return price_list[people_count]
+
+        # Если нет точного совпадения, ищем ближайшее большее значение grp
+        # (чем больше группа, тем дешевле цена за человека)
+        available_grps = sorted(price_list.keys())
+
+        for grp in available_grps:
+            if grp >= people_count:
+                return price_list[grp]
+
+        # Если people_count больше всех доступных grp, берём максимальный grp
+        if available_grps:
+            return price_list[max(available_grps)]
+
+        return 0
