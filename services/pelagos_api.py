@@ -143,6 +143,8 @@ class PelagosAPI:
         start: int = 0,
         service_id: Optional[int] = None,
         search: Optional[str] = None,
+        service_type: Optional[int] = None,
+        props: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Получить услуги"""
         params = {"perpage": perpage, "start": start}
@@ -151,6 +153,10 @@ class PelagosAPI:
             params["id"] = service_id
         if search:
             params["search"] = search
+        if service_type:
+            params["type"] = service_type
+        if props:
+            params["props"] = props
 
         data = await self.client.get("export-services/", params=params)
 
@@ -474,6 +480,37 @@ class PelagosAPI:
                 private_excursions.append(item)
 
         return private_excursions
+
+    async def get_daily_excursions(
+        self,
+        location_id: int = 0
+    ) -> List[dict]:
+        """
+        Получить ежедневные экскурсии (групповые с props=daily)
+
+        Args:
+            location_id: ID локации (0 = все локации)
+
+        Returns:
+            список словарей с ежедневными экскурсиями
+        """
+        params = {
+            "type": 1100,  # Тип: экскурсии
+            "props": "daily",  # Только ежедневные
+            "perpage": 500
+        }
+
+        if location_id and location_id > 0:
+            params["location"] = location_id
+
+        logger.info(f"🌐 API Request (Daily): export-services/ with params: {params}")
+        data = await self.client.get("export-services/", params=params)
+        logger.info(f"📥 Daily API Response: {data.get('code') if data else 'None'}, items: {len(data.get('services', [])) if data else 0}")
+
+        if not data or data.get("code") != "OK":
+            return []
+
+        return data.get("services", [])
 
     async def get_companions_calendar(
         self,

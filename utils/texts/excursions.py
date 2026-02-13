@@ -84,29 +84,43 @@ def get_group_excursion_card_text(excursion: dict, people_count: int = 1, expand
 def get_private_excursion_card_text(excursion: dict, people_count: int, expanded: bool = False) -> str:
     """Форматирование карточки индивидуальной экскурсии"""
 
-    # Для индивидуальных экскурсий используем price_list если есть
+    # Проверяем, является ли это групповой ежедневной экскурсией
+    is_group_daily = excursion.get('is_group_daily', False)
+
     price_list = excursion.get('price_list', {})
 
-    # Получаем цену ЗА ЧЕЛОВЕКА для указанного количества людей
-    price_per_person_usd = 0
-    if price_list and people_count in price_list:
-        price_per_person_usd = price_list[people_count]
-    elif excursion.get('price_usd'):
-        price_per_person_usd = excursion['price_usd']
+    # Для групповых ежедневных - фиксированная цена за человека (как у обычных групповых)
+    if is_group_daily:
+        # Цена за человека фиксированная
+        price_per_person_usd = excursion.get('min_price', 0) or excursion.get('price_usd', 0)
+        total_price_usd = price_per_person_usd * people_count
+    else:
+        # Для индивидуальных - цена зависит от количества людей
+        price_per_person_usd = 0
+        if price_list and people_count in price_list:
+            price_per_person_usd = price_list[people_count]
+        elif excursion.get('price_usd'):
+            price_per_person_usd = excursion['price_usd']
 
-    # Вычисляем ОБЩУЮ стоимость (цена_за_человека × количество_человек)
-    total_price_usd = price_per_person_usd * people_count
+        total_price_usd = price_per_person_usd * people_count
 
     # Формируем блок с ценой
     if total_price_usd and total_price_usd > 0:
         total_price_rub = int(convert_price(total_price_usd, "usd", "rub"))
         total_price_peso = int(convert_price(total_price_usd, "usd", "peso"))
 
-        # Также показываем цену за человека для справки
         price_per_person_rub = int(convert_price(price_per_person_usd, "usd", "rub"))
         price_per_person_peso = int(convert_price(price_per_person_usd, "usd", "peso"))
 
-        price_block = f"""Общая стоимость:
+        if is_group_daily:
+            # Для групповых ежедневных - показываем как у групповых
+            price_block = f"""💵 Цена за чел.: ${price_per_person_usd} / {price_per_person_rub} руб. / {price_per_person_peso} песо
+
+Общая стоимость ({people_count} чел.):
+💰 ${total_price_usd} / {total_price_rub} руб. / {total_price_peso} песо"""
+        else:
+            # Для индивидуальных - показываем общую стоимость
+            price_block = f"""Общая стоимость:
 💵 ${total_price_usd} дол.
 ₽ {total_price_rub} руб.
 ₱ {total_price_peso} песо
@@ -120,8 +134,13 @@ def get_private_excursion_card_text(excursion: dict, people_count: int, expanded
 
 📍 {excursion.get('island_name', 'Не указан')}
 👥 Количество чел.: {people_count}
+"""
 
-{price_block}"""
+    # Добавляем маркер для ежедневных экскурсий
+    if excursion.get('is_daily'):
+        text += "⏰ Проводится ежедневно\n"
+
+    text += f"\n{price_block}"
 
     # Дополнительная информация о включенных опциях
     features = []

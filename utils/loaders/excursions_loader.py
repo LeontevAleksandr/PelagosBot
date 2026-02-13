@@ -17,6 +17,7 @@ class ExcursionsLoader:
     CACHE_TTL_GROUP = 3600  # 1 час для групповых
     CACHE_TTL_PRIVATE = 7200  # 2 часа для индивидуальных (меняются реже)
     CACHE_TTL_COMPANIONS = 3600  # 1 час для попутчиков
+    CACHE_TTL_DAILY = 7200  # 2 часа для ежедневных (меняются редко)
 
     # Маппинг островов (location ID → код острова)
     LOCATION_MAP = {
@@ -100,6 +101,73 @@ class ExcursionsLoader:
                     price_list[grp] = price
         return price_list
 
+    def _daily_service_to_dict(self, service_data: dict) -> Optional[dict]:
+        """Преобразовать ежедневную экскурсию (daily service) в dict"""
+        if not service_data:
+            return None
+
+        # Проверяем что это действительно ежедневная
+        if service_data.get('daily') != 10:
+            return None
+
+        # Остров
+        location = service_data.get('location', 9)
+        if location in self.PRIVATE_ISLANDS_MAP:
+            island_name = self.PRIVATE_ISLANDS_MAP[location]
+            island_code_map = {v: k for k, v in self.LOCATION_MAP.items()}
+            island = island_code_map.get(location, "cebu")
+        else:
+            island, island_name = self._get_island_info(location)
+
+        # Фото
+        pics = service_data.get('pics', [])
+        photo_url = self._build_photo_url(pics[0]) if pics else None
+
+        # Описание
+        html = service_data.get('html', '')
+        description = self._clean_html(html)
+
+        # Цены - для ежедневных используем min_price как базу
+        min_price = service_data.get('min_price', 0)
+        max_price = service_data.get('max_price', 0)
+        price_list = self._extract_price_list(service_data.get('rlst', []))
+
+        excursion_id = service_data.get('id')
+
+        # Определяем это групповая или индивидуальная ежедневная
+        group_ex = service_data.get('group_ex')
+        is_group_daily = group_ex == 10
+
+        return {
+            "id": str(excursion_id),
+            "service_id": str(excursion_id),
+            "name": service_data.get('name', ''),
+            "island": island,
+            "island_name": island_name,
+            "location_id": location,
+            "type": "private",  # Показываем в индивидуальных
+            "date": None,
+            "time": None,
+            "duration": None,
+            "description": description,
+            "full_description": html,
+            "price": min_price,
+            "price_usd": min_price,
+            "min_price": min_price,
+            "max_price": max_price,
+            "price_list": price_list,
+            "people_count": 1,
+            "photo": photo_url,
+            "photos": pics,
+            "url": service_data.get('inhttp') or f"https://ru.pelagos.ru/activity/{excursion_id}/",
+            "has_russian_guide": service_data.get('russian_guide') == 10,
+            "private_transport": service_data.get('private_transport') == 10,
+            "lunch_included": service_data.get('lunch_included') == 10,
+            "tickets_included": service_data.get('tickets_included') == 10,
+            "is_daily": True,
+            "is_group_daily": is_group_daily,  # НОВОЕ: маркер что это групповая ежедневная
+        }
+
     def _service_to_dict(self, service_data: dict, excursion_type: str = "private") -> Optional[dict]:
         """Преобразовать service из list API в dict для обработчиков (индивидуальные экскурсии)"""
         if not service_data:
@@ -134,6 +202,9 @@ class ExcursionsLoader:
 
         excursion_id = service_data.get('id')
 
+        # Проверяем, является ли это ежедневной экскурсией
+        is_daily = service_data.get('daily') == 10
+
         return {
             "id": str(excursion_id),
             "service_id": str(excursion_id),
@@ -160,6 +231,7 @@ class ExcursionsLoader:
             "private_transport": service_data.get('private_transport') == 10,
             "lunch_included": service_data.get('lunch_included') == 10,
             "tickets_included": service_data.get('tickets_included') == 10,
+            "is_daily": is_daily,
         }
 
     def _event_to_dict(self, event: ExcursionEvent, excursion_type: str = "group") -> Optional[dict]:
@@ -344,7 +416,7 @@ class ExcursionsLoader:
 
     async def get_available_islands_with_count(self) -> List[Dict[str, any]]:
         """
-        НОВАЯ ФУНКЦИЯ: Загрузить все доступные острова с подсчётом индивидуальных экскурсий
+        Загрузить все доступные острова с подсчётом индивидуальных + ежедневных экскурсий
 
         Returns:
             Список словарей: [{"location_id": int, "name": str, "count": int}, ...]
@@ -362,33 +434,47 @@ class ExcursionsLoader:
             return cached
 
         try:
-            logger.info("🔍 Загрузка всех индивидуальных экскурсий для подсчёта островов...")
+            logger.info("🔍 Загрузка всех экскурсий для подсчёта островов...")
 
-            # Загружаем ВСЕ индивидуальные экскурсии с location=0
+            # Загружаем параллельно индивидуальные и ежедневные
             tomorrow = datetime.now() + timedelta(days=1)
             api_date = tomorrow.strftime("%d.%m.%Y")
 
-            services = await self.api.get_private_excursions(
-                location_id=0,
-                date=api_date
+            private_services, daily_services = await asyncio.gather(
+                self.api.get_private_excursions(location_id=0, date=api_date),
+                self.api.get_daily_excursions(location_id=0),
+                return_exceptions=True
             )
 
-            logger.info(f"📡 API вернул {len(services)} индивидуальных экскурсий")
+            # Обрабатываем ошибки
+            if isinstance(private_services, Exception):
+                logger.error(f"Ошибка загрузки индивидуальных: {private_services}")
+                private_services = []
+            if isinstance(daily_services, Exception):
+                logger.error(f"Ошибка загрузки ежедневных: {daily_services}")
+                daily_services = []
 
-            # Конвертируем все сервисы в словари и кэшируем их сразу
+            logger.info(f"📡 API: {len(private_services)} индивидуальных + {len(daily_services)} ежедневных")
+
+            # Конвертируем все сервисы в словари
             all_excursions = []
-            for service in services:
+            for service in private_services:
                 exc_dict = self._service_to_dict(service, "private")
                 if exc_dict:
                     all_excursions.append(exc_dict)
 
-            # Кэшируем ВСЕ экскурсии для дальнейшего использования
+            for service in daily_services:
+                exc_dict = self._daily_service_to_dict(service)
+                if exc_dict:
+                    all_excursions.append(exc_dict)
+
+            # Кэшируем ВСЕ экскурсии
             self.cache.set("all_private_excursions", all_excursions, ttl=self.CACHE_TTL_PRIVATE)
-            logger.info(f"💾 Закэшировано {len(all_excursions)} индивидуальных экскурсий")
+            logger.info(f"💾 Закэшировано {len(all_excursions)} экскурсий")
 
             # Подсчитываем экскурсии по островам
             island_counts = {}
-            for service in services:
+            for service in private_services + daily_services:
                 location_id = service.get('location')
 
                 # Фильтруем только наши острова (исключаем 6 и 12)
@@ -484,7 +570,7 @@ class ExcursionsLoader:
 
     async def _get_private_excursions_filtered(self, island: str = None) -> list:
         """
-        Получить индивидуальные экскурсии с кэшированием
+        Получить индивидуальные + ежедневные экскурсии с кэшированием
 
         Args:
             island: location_id в виде строки (например, "9" для Себу) или None для всех
@@ -502,30 +588,44 @@ class ExcursionsLoader:
                         logger.info(f"✓ Кэш HIT: {len(cached)} экскурсий для острова {self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)}")
                         return cached
 
-                    logger.info(f"🔍 Загрузка индивидуальных экскурсий для location_id={location_id} ({self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)})")
+                    logger.info(f"🔍 Загрузка экскурсий для location_id={location_id} ({self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)})")
 
-                    # Делаем API запрос с фильтром по location_id
+                    # Загружаем параллельно индивидуальные и ежедневные
                     tomorrow = datetime.now() + timedelta(days=1)
                     api_date = tomorrow.strftime("%d.%m.%Y")
 
-                    services = await self.api.get_private_excursions(
-                        location_id=location_id,
-                        date=api_date
+                    private_services, daily_services = await asyncio.gather(
+                        self.api.get_private_excursions(location_id=location_id, date=api_date),
+                        self.api.get_daily_excursions(location_id=location_id),
+                        return_exceptions=True
                     )
 
-                    logger.info(f"📡 API вернул {len(services)} индивидуальных экскурсий для острова {location_id}")
+                    # Обрабатываем ошибки
+                    if isinstance(private_services, Exception):
+                        logger.error(f"Ошибка загрузки индивидуальных: {private_services}")
+                        private_services = []
+                    if isinstance(daily_services, Exception):
+                        logger.error(f"Ошибка загрузки ежедневных: {daily_services}")
+                        daily_services = []
+
+                    logger.info(f"📡 API: {len(private_services)} индивидуальных + {len(daily_services)} ежедневных")
 
                     # Конвертируем services в словари
                     excursions = []
-                    for service in services:
+                    for service in private_services:
                         exc_dict = self._service_to_dict(service, "private")
+                        if exc_dict:
+                            excursions.append(exc_dict)
+
+                    for service in daily_services:
+                        exc_dict = self._daily_service_to_dict(service)
                         if exc_dict:
                             excursions.append(exc_dict)
 
                     # Кэшируем результат для этого острова
                     self.cache.set(cache_key, excursions, ttl=self.CACHE_TTL_PRIVATE)
 
-                    logger.info(f"✅ Возвращаем {len(excursions)} индивидуальных экскурсий для острова {self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)}")
+                    logger.info(f"✅ Возвращаем {len(excursions)} экскурсий для острова {self.PRIVATE_ISLANDS_MAP.get(location_id, location_id)}")
                     return excursions
 
                 except ValueError:
@@ -565,6 +665,56 @@ class ExcursionsLoader:
 
         except Exception as e:
             logger.error(f"❌ Ошибка загрузки индивидуальных экскурсий: {e}", exc_info=True)
+            return []
+
+    async def _get_daily_excursions_filtered(self, island: str = None) -> list:
+        """
+        Получить ежедневные экскурсии с кэшированием
+
+        Args:
+            island: location_id в виде строки или None для всех
+
+        Returns:
+            список словарей с ежедневными экскурсиями
+        """
+        try:
+            # Определяем location_id
+            location_id = 0
+            if island:
+                try:
+                    location_id = int(island)
+                except ValueError:
+                    location_id = self.LOCATION_MAP.get(island.lower(), 0)
+
+            # Проверяем кэш
+            cache_key = f"daily_excursions_island_{location_id}"
+            cached = self.cache.get(cache_key)
+            if cached:
+                logger.info(f"✓ Кэш HIT: {len(cached)} ежедневных экскурсий")
+                return cached
+
+            logger.info(f"🔍 Загрузка ежедневных экскурсий для location_id={location_id}")
+
+            # Загружаем ежедневные экскурсии
+            services = await self.api.get_daily_excursions(location_id=location_id)
+
+            logger.info(f"📡 API вернул {len(services)} ежедневных экскурсий")
+
+            # Конвертируем в словари
+            excursions = []
+            for service in services:
+                exc_dict = self._daily_service_to_dict(service)
+                if exc_dict:
+                    excursions.append(exc_dict)
+
+            # Кэшируем
+            self.cache.set(cache_key, excursions, ttl=self.CACHE_TTL_DAILY)
+
+            logger.info(f"✅ Возвращаем {len(excursions)} ежедневных экскурсий")
+            return excursions
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки ежедневных экскурсий: {e}", exc_info=True)
             return []
 
     async def preload_private_excursions(self, island: str = None):

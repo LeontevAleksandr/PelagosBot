@@ -192,6 +192,7 @@ class Service: # dont use
     lunch_included: Optional[int] = None
     private_transport: Optional[int] = None
     tickets_included: Optional[int] = None
+    daily: Optional[int] = None
     inhttp: Optional[str] = None
     pics: List[str] = field(default_factory=list)
     min_price: Optional[float] = None
@@ -217,6 +218,7 @@ class Service: # dont use
             lunch_included=data.get('lunch_included'),
             private_transport=data.get('private_transport'),
             tickets_included=data.get('tickets_included'),
+            daily=data.get('daily'),
             inhttp=data.get('inhttp'),
             pics=data.get('pics', []),
             min_price=data.get('min_price'),
