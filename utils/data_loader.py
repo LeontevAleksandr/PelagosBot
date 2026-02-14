@@ -11,17 +11,16 @@ logger = logging.getLogger(__name__)
 class DataLoader:
     """Фасад для работы с различными типами данных бота"""
 
-    def __init__(self, api: Optional[PelagosAPI] = None, json_path: str = "data/mock_data.json"):
+    def __init__(self, api: Optional[PelagosAPI] = None):
         """
         Args:
-            api: API для работы с отелями, экскурсиями и трансферами (Pelagos API)
-            json_path: путь к JSON файлу для пакетов
+            api: API для работы с отелями, экскурсиями, трансферами и турами (Pelagos API)
         """
         # Инициализируем специализированные загрузчики
         self.hotels_loader = HotelsLoader(api=api)
         self.excursions_loader = ExcursionsLoader(api=api)
-        self.transfers_loader = TransfersLoader(api=api)  # Теперь использует API
-        self.packages_loader = PackagesLoader(json_path=json_path)
+        self.transfers_loader = TransfersLoader(api=api)
+        self.packages_loader = PackagesLoader(api=api)
 
     # ========== ОТЕЛИ (делегирование в HotelsLoader) ==========
 
@@ -98,13 +97,17 @@ class DataLoader:
 
     # ========== ПАКЕТНЫЕ ТУРЫ (делегирование в PackagesLoader) ==========
 
-    def get_packages_by_date(self, target_date: str = None) -> list:
-        """Получить пакетные туры близкие к указанной дате"""
-        return self.packages_loader.get_packages_by_date(target_date)
+    async def get_all_packages(self) -> list:
+        """Получить все пакетные туры"""
+        return await self.packages_loader.get_all_packages()
 
-    def get_package_by_id(self, package_id: str) -> dict:
+    async def get_package_by_id(self, package_id: str) -> dict:
         """Получить пакетный тур по ID"""
-        return self.packages_loader.get_package_by_id(package_id)
+        return await self.packages_loader.get_package_by_id(package_id)
+
+    async def get_package_with_prices(self, package_id: str) -> dict:
+        """Получить пакетный тур по ID с ценами"""
+        return await self.packages_loader.get_package_with_prices(package_id)
 
     # ========== ТРАНСФЕРЫ (делегирование в TransfersLoader) ==========
 

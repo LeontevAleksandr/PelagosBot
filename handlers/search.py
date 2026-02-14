@@ -2,9 +2,8 @@
 import logging
 import os
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
-from config import COMPANY_LINKS
 
 from keyboards import (
     get_back_to_main_keyboard,
@@ -76,27 +75,10 @@ async def select_search_category(callback: CallbackQuery, state: FSMContext):
     # Сохраняем категорию
     await state.update_data(search_category=category)
 
-    # Для пакетных туров - показываем заглушку
+    # Для пакетных туров — перенаправляем в основное флоу
     if category == "packages":
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🌐 Посетить сайт", url=COMPANY_LINKS["packages"])],
-            [InlineKeyboardButton(text="💬 Связаться с менеджером", url=COMPANY_LINKS["support"])],
-            [InlineKeyboardButton(text="🔍 Вернуться к поиску", callback_data="search:back")],
-            [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
-        ])
-
-        text = (
-            "📦 <b>Поиск пакетных туров</b>\n\n"
-            "Раздел с пакетными турами находится в разработке!\n\n"
-            "🌟 Чтобы ознакомиться с актуальными предложениями по пакетным турам, "
-            "пожалуйста, посетите наш сайт или свяжитесь с менеджером.\n\n"
-            "Мы работаем над тем, чтобы скоро вы могли искать туры прямо в боте! 🚀"
-        )
-
-        await callback.message.edit_text(
-            text,
-            reply_markup=keyboard
-        )
+        from handlers.packages import start_packages_flow
+        await start_packages_flow(callback, state)
         return
 
     # Для экскурсий - сначала выбор типа
