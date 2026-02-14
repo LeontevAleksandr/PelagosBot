@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 from services.pelagos_api import PelagosAPI
 from utils.loaders import HotelsLoader, TransfersLoader, PackagesLoader
-from utils.loaders.excursions_loader import ExcursionsLoader
+from utils.loaders.excursions import ExcursionsLoader
 
 logger = logging.getLogger(__name__)
 

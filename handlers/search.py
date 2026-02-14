@@ -442,15 +442,14 @@ async def display_excursion_results(message: Message, query: str, results: list,
     # Для индивидуальных экскурсий используем существующий флоу
     if excursion_type == "private":
         # Импортируем необходимые функции
-        from utils.loaders.excursions_loader import ExcursionsLoader
+        from utils.loaders.excursions.transformers import ServiceTransformer
 
         # Преобразуем словари в формат для обработчика
         # get_private_excursions уже возвращает словари, просто передаем их в _service_to_dict
-        loader = ExcursionsLoader(api=None)
         excursions_dict = []
         for exc in excursions:
             # exc уже словарь из get_private_excursions, передаем напрямую
-            exc_dict = loader._service_to_dict(exc, excursion_type="private")
+            exc_dict = ServiceTransformer.transform(exc, excursion_type="private")
             if exc_dict:
                 excursions_dict.append(exc_dict)
 
