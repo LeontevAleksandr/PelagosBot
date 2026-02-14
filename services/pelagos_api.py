@@ -659,7 +659,7 @@ class PelagosAPI:
             "type": 1200,  # Тип трансфера (subtype из API)
             "perpage": perpage,
             "start": start,
-            "props": "!agents_only"  # Исключаем услуги только для агентов
+            "props": "!agents_only,!childrate"  # Исключаем услуги только для агентов и детские тарифы
         }
 
         if location_id:

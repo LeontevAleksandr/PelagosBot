@@ -100,6 +100,10 @@ class PackagesLoader:
 
             packages = []
             for service in services:
+                # Пропускаем детские тарифы
+                if service.childrate and service.childrate > 0:
+                    continue
+
                 package_dict = {
                     'id': str(service.id),
                     'name': service.name,

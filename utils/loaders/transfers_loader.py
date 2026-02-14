@@ -122,6 +122,10 @@ class TransfersLoader:
             # Конвертируем Transfer объекты в словари для совместимости
             transfers = []
             for transfer in transfers_objects:
+                # Пропускаем детские тарифы
+                if transfer.childrate and transfer.childrate > 0:
+                    continue
+
                 # Формируем описание на основе характеристик трансфера
                 description_parts = []
                 if transfer.group_ex:

@@ -193,6 +193,7 @@ class Service: # dont use
     private_transport: Optional[int] = None
     tickets_included: Optional[int] = None
     daily: Optional[int] = None
+    childrate: Optional[int] = None
     inhttp: Optional[str] = None
     pics: List[str] = field(default_factory=list)
     min_price: Optional[float] = None
@@ -219,6 +220,7 @@ class Service: # dont use
             private_transport=data.get('private_transport'),
             tickets_included=data.get('tickets_included'),
             daily=data.get('daily'),
+            childrate=data.get('childrate'),
             inhttp=data.get('inhttp'),
             pics=data.get('pics', []),
             min_price=data.get('min_price'),
@@ -378,6 +380,7 @@ class Transfer:
     russian_guide: Optional[int] = None
     private_transport: Optional[int] = None
     group_ex: Optional[int] = None
+    childrate: Optional[int] = None
     inhttp: Optional[str] = None
     pics: List[Any] = field(default_factory=list)
     cdt: Optional[int] = None
@@ -403,6 +406,7 @@ class Transfer:
             russian_guide=data.get('russian_guide'),
             private_transport=data.get('private_transport'),
             group_ex=data.get('group_ex'),
+            childrate=data.get('childrate'),
             inhttp=data.get('inhttp'),
             pics=data.get('pics', []),
             cdt=data.get('cdt'),
