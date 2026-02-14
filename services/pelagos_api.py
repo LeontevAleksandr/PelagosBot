@@ -155,8 +155,12 @@ class PelagosAPI:
             params["search"] = search
         if service_type:
             params["type"] = service_type
+
+        # Добавляем фильтр !agents_only ко всем запросам
         if props:
-            params["props"] = props
+            params["props"] = f"{props},!agents_only"
+        else:
+            params["props"] = "!agents_only"
 
         data = await self.client.get("export-services/", params=params)
 
@@ -472,12 +476,21 @@ class PelagosAPI:
         # Фильтруем только индивидуальные экскурсии
         # group_ex == 0 или отсутствует (None) = индивидуальная
         # group_ex > 0 = групповая
+        # agents_only > 0 = только для агентов (не показываем)
         private_excursions = []
         for item in lst:
             group_ex = item.get("group_ex")
-            # Если group_ex отсутствует (None) или равен 0 - это индивидуальная экскурсия
-            if group_ex is None or group_ex == 0:
-                private_excursions.append(item)
+            agents_only = item.get("agents_only")
+
+            # Пропускаем групповые экскурсии
+            if group_ex is not None and group_ex > 0:
+                continue
+
+            # Пропускаем услуги только для агентов
+            if agents_only is not None and agents_only > 0:
+                continue
+
+            private_excursions.append(item)
 
         return private_excursions
 
@@ -496,7 +509,7 @@ class PelagosAPI:
         """
         params = {
             "type": 1100,  # Тип: экскурсии
-            "props": "daily",  # Только ежедневные
+            "props": "daily,!agents_only",  # Только ежедневные, без agents_only
             "perpage": 500
         }
 
@@ -645,7 +658,8 @@ class PelagosAPI:
         params = {
             "type": 1200,  # Тип трансфера (subtype из API)
             "perpage": perpage,
-            "start": start
+            "start": start,
+            "props": "!agents_only"  # Исключаем услуги только для агентов
         }
 
         if location_id:
