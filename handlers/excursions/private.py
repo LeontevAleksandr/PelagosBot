@@ -16,7 +16,7 @@ from keyboards import (
 )
 from utils.texts import EXCURSIONS_PRIVATE_INTRO, get_private_excursion_card_text, get_excursion_booking_text
 from utils.data_loader import get_data_loader
-from utils.helpers import format_date, get_calendar_keyboard
+from utils.helpers import format_date, get_calendar_keyboard, send_items_page
 from utils.media_manager import get_excursion_photo
 from handlers.excursions.common import EXCURSIONS_PER_PAGE
 
@@ -229,7 +229,7 @@ async def show_all_private_excursions(callback: CallbackQuery, state: FSMContext
 
 
 async def send_private_excursions_cards_page(message: Message, state: FSMContext, page: int):
-    """Отправить страницу с карточками индивидуальных экскурсий"""
+    """Отправить страницу с приватными экскурсиями (по 5 штук)"""
     data = await state.get_data()
     excursions = data.get("excursions", [])
     people_count = data.get("people_count", 1)
@@ -237,26 +237,12 @@ async def send_private_excursions_cards_page(message: Message, state: FSMContext
     if not excursions:
         return
 
-    # Рассчитываем индексы для текущей страницы
-    total_excursions = len(excursions)
-    total_pages = (total_excursions + EXCURSIONS_PER_PAGE - 1) // EXCURSIONS_PER_PAGE
+    # Функция форматирования карточки
+    def format_card(excursion):
+        return get_private_excursion_card_text(excursion, people_count, expanded=False)
 
-    # Нормализуем номер страницы
-    if page < 1:
-        page = 1
-    elif page > total_pages:
-        page = total_pages
-
-    start_idx = (page - 1) * EXCURSIONS_PER_PAGE
-    end_idx = min(start_idx + EXCURSIONS_PER_PAGE, total_excursions)
-    page_excursions = excursions[start_idx:end_idx]
-
-    # Отправляем карточки экскурсий
-    for idx, excursion in enumerate(page_excursions):
-        global_idx = start_idx + idx
-        card_text = get_private_excursion_card_text(excursion, people_count, expanded=False)
-
-        # Кнопки для каждой карточки
+    # Функция создания клавиатуры с кнопками развернуть/свернуть и ссылкой
+    def get_keyboard(excursion):
         buttons = [
             [InlineKeyboardButton(text="✅ Забронировать", callback_data=f"exc_book:{excursion['id']}")],
             [InlineKeyboardButton(text="Развернуть ▼", callback_data=f"exc_private_expand_page:{excursion['id']}:{page}")],
@@ -267,57 +253,25 @@ async def send_private_excursions_cards_page(message: Message, state: FSMContext
         if excursion_url:
             buttons.append([InlineKeyboardButton(text="🔍 Смотреть экскурсию", url=excursion_url)])
 
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-        # Пытаемся получить фото
-        photo = await get_excursion_photo(excursion["id"])
+    # Функция получения фото
+    async def get_photo(excursion):
+        return await get_excursion_photo(excursion["id"])
 
-        # Telegram ограничивает caption до 1024 символов
-        MAX_CAPTION_LENGTH = 1024
-        if len(card_text) > MAX_CAPTION_LENGTH:
-            card_text = card_text[:MAX_CAPTION_LENGTH - 3] + "..."
-
-        if photo:
-            try:
-                await message.answer_photo(
-                    photo=photo,
-                    caption=card_text,
-                    reply_markup=keyboard
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ Не удалось отправить фото: {e}")
-                await message.answer(
-                    card_text,
-                    reply_markup=keyboard
-                )
-        else:
-            await message.answer(
-                card_text,
-                reply_markup=keyboard
-            )
-
-    # Контрольное сообщение с навигацией
-    control_text = f"Страница {page} из {total_pages} (экскурсии {start_idx + 1}-{end_idx} из {total_excursions})"
-    control_buttons = []
-
-    # Кнопки навигации
-    nav_buttons = []
-    if page > 1:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"exc_private_cards_page:{page - 1}"))
-    if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton(text="Вперед ➡️", callback_data=f"exc_private_cards_page:{page + 1}"))
-
-    if nav_buttons:
-        control_buttons.append(nav_buttons)
-
-    # Кнопка "В главное меню"
-    control_buttons.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")])
-
-    control_keyboard = InlineKeyboardMarkup(inline_keyboard=control_buttons)
-
-    await message.answer(
-        control_text,
-        reply_markup=control_keyboard
+    # Используем универсальную функцию
+    await send_items_page(
+        message=message,
+        items=excursions,
+        page=page,
+        per_page=EXCURSIONS_PER_PAGE,
+        format_card_func=format_card,
+        get_keyboard_func=get_keyboard,
+        get_photo_func=get_photo,
+        callback_prefix="exc_private_cards_page",
+        page_title="Страница",
+        parse_mode="Markdown",
+        page_1_based=True
     )
 
 

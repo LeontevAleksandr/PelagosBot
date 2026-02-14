@@ -106,9 +106,7 @@ class ExcursionsLoader:
         if not service_data:
             return None
 
-        # Проверяем что это действительно ежедневная
-        if service_data.get('daily') != 10:
-            return None
+        # API уже вернул ежедневные через props=daily, дополнительная проверка не нужна
 
         # Остров
         location = service_data.get('location', 9)
