@@ -389,6 +389,10 @@ class ExcursionsLoader:
         # НОВОЕ: Список попутчиков (может отсутствовать в кратком списке)
         companions_list = event_data.get('slst', [])
 
+        # ИСПРАВЛЕНИЕ: Подсчитываем ОБЩЕЕ количество людей из slst
+        total_pax = sum(companion.get('pax', 0) for companion in companions_list)
+        logger.debug(f"📊 Попутчики (краткий список) для {service.get('name')}: {len(companions_list)} записей, {total_pax} человек")
+
         return {
             "id": str(event_id),
             "service_id": str(service_id),
@@ -406,7 +410,7 @@ class ExcursionsLoader:
             "price_usd": 0,
             "photo": photo_url,
             "url": f"https://ru.pelagos.ru/activity/{service_id}/",
-            "pax": event_data.get('pax', 0),
+            "pax": total_pax,  # ИСПРАВЛЕНО: Используем подсчитанное значение
             "companions": companions_list,  # НОВОЕ: Добавляем список попутчиков
             "has_russian_guide": service.get('russian_guide') == 10,
             "private_transport": service.get('private_transport') == 10,
@@ -795,7 +799,10 @@ class ExcursionsLoader:
                         exc_dict['price_usd'] = min(price_list.values())
 
                     slst = companion_event.get('slst', [])
-                    exc_dict['pax'] = len(slst)
+                    # ИСПРАВЛЕНИЕ: Подсчитываем ОБЩЕЕ количество людей из slst
+                    total_pax = sum(companion.get('pax', 0) for companion in slst)
+                    logger.info(f"📊 Попутчики для экскурсии {service_id}: найдено {len(slst)} записей, всего {total_pax} человек")
+                    exc_dict['pax'] = total_pax
                     exc_dict['companions'] = slst
 
                     self.cache.set(cache_key, exc_dict, ttl=self.CACHE_TTL_COMPANIONS)
@@ -844,6 +851,66 @@ class ExcursionsLoader:
         except Exception as e:
             logger.error(f"❌ Ошибка загрузки экскурсии {excursion_id}: {e}", exc_info=True)
             return None
+
+    async def get_companion_event_by_id(self, event_id: str) -> Optional[dict]:
+        """
+        Получить companion event по event_id с полными данными (slst)
+
+        Args:
+            event_id: ID события
+
+        Returns:
+            словарь с данными экскурсии или None
+        """
+        if not self.api:
+            return None
+
+        try:
+            event_id_int = int(event_id)
+
+            # Загружаем полные данные события
+            companion_event = await self.api.get_companion_event_details(event_id_int)
+
+            if not companion_event:
+                return None
+
+            # Формируем структуру
+            today = datetime.now()
+            day_data = {
+                "date": today.strftime("%d.%m.%Y"),
+                "mon": today.month,
+                "year": str(today.year)
+            }
+            event_struct = {
+                "id": event_id_int,
+                "service_id": companion_event.get('id'),
+                "service": companion_event,
+                "pax": 0
+            }
+
+            # Преобразуем в dict
+            exc_dict = self._companion_event_to_dict(event_struct, day_data)
+
+            if exc_dict:
+                # Добавляем цены
+                price_list = self._extract_price_list(companion_event.get('rlst', []))
+                exc_dict['price_list'] = price_list
+                if price_list:
+                    exc_dict['price_usd'] = min(price_list.values())
+
+                # ГЛАВНОЕ: Добавляем попутчиков из slst
+                slst = companion_event.get('slst', [])
+                total_pax = sum(companion.get('pax', 0) for companion in slst)
+                logger.info(f"📊 Попутчики для события {event_id}: найдено {len(slst)} записей, всего {total_pax} человек")
+                exc_dict['pax'] = total_pax
+                exc_dict['companions'] = slst
+
+                return exc_dict
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки companion event {event_id}: {e}", exc_info=True)
+
+        return None
 
     async def get_companions_by_month(self, island: str, year: int, month: int) -> list:
         """

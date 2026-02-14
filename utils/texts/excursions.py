@@ -166,14 +166,13 @@ def get_private_excursion_card_text(excursion: dict, people_count: int, expanded
 def get_companions_excursion_card_text(excursion: dict) -> str:
     """Форматирование карточки экскурсии для поиска попутчиков"""
     pax = excursion.get('pax', 0)
-    companions = excursion.get('companions', [])
 
     # Получаем price_list если есть, иначе используем обычную цену
     price_list = excursion.get('price_list', {})
 
     # Формируем строку с ценами
     if price_list:
-        # Показываем цены для разного количества человек
+        # Показываем ВСЕ цены для разного количества человек
         price_lines = []
         for grp in sorted(price_list.keys()):
             price_per_person_usd = price_list[grp]
@@ -184,9 +183,7 @@ def get_companions_excursion_card_text(excursion: dict) -> str:
                 f"• {grp} чел: ${price_per_person_usd} / {price_per_person_rub} руб. / {price_per_person_peso} песо (за чел.)"
             )
 
-        price_block = "💵 Цены:\n" + "\n".join(price_lines[:3])  # Показываем первые 3 варианта
-        if len(price_lines) > 3:
-            price_block += f"\n... и еще {len(price_lines) - 3} вариантов"
+        price_block = "💵 Цены:\n" + "\n".join(price_lines)  # Показываем ВСЕ варианты
     else:
         price_usd = excursion.get('price_usd', 0)
         if price_usd and price_usd > 0:
@@ -212,38 +209,6 @@ def get_companions_excursion_card_text(excursion: dict) -> str:
     # Дата
     date_formatted = format_date(excursion.get('date', '')) if excursion.get('date') else 'Дата уточняется'
 
-    # НОВОЕ: Формируем блок со списком попутчиков
-    companions_block = ""
-    if companions:
-        companions_block = "\n\n**👥 Ищут попутчиков:**\n"
-        for companion in companions[:5]:  # Показываем до 5 участников
-            name = companion.get('title', 'Аноним')
-            companion_pax = companion.get('pax', 1)
-            phone = companion.get('phone', '')
-            tg = companion.get('tg', '')
-
-            # Формируем строку с контактами
-            contacts = []
-            if phone:
-                contacts.append(f"📞 {phone}")
-            if tg:
-                contacts.append(f"💬 @{tg}")
-
-            contact_str = ", ".join(contacts) if contacts else ""
-
-            # Формируем строку участника
-            if companion_pax > 1:
-                companions_block += f"• {name} ({companion_pax} чел.)"
-            else:
-                companions_block += f"• {name}"
-
-            if contact_str:
-                companions_block += f" - {contact_str}"
-            companions_block += "\n"
-
-        if len(companions) > 5:
-            companions_block += f"... и еще {len(companions) - 5} чел.\n"
-
     # Добавляем бейдж и описание
     text = f"""{excursion['name']}
 
@@ -253,7 +218,7 @@ def get_companions_excursion_card_text(excursion: dict) -> str:
 🕐 {date_formatted}
 👥 уже {pax} человек{' ищут' if pax != 1 else ' ищет'} попутчиков
 
-{price_block}{features_block}{companions_block}"""
+{price_block}{features_block}"""
 
     return text
 

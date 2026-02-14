@@ -580,13 +580,22 @@ class PelagosAPI:
         endpoint = f"group-tours-event/{event_id}/"
         params = {"extend": 1}
 
-        logger.info(f"🌐 Event Details API Request: {endpoint}")
+        logger.info(f"🌐 Event Details API Request: {endpoint} with params: {params}")
         data = await self.client.get(endpoint, params=params)
 
         if not data or data.get("code") != "OK":
+            logger.warning(f"⚠️ API returned code: {data.get('code') if data else 'None'}")
             return None
 
-        return data.get("row")
+        row = data.get("row")
+        if row:
+            slst = row.get('slst', [])
+            logger.info(f"✅ Event {event_id}: slst contains {len(slst)} records")
+            if slst:
+                total_pax = sum(item.get('pax', 0) for item in slst)
+                logger.info(f"📊 Total pax from slst: {total_pax}")
+
+        return row
 
     # === ЦЕНЫ УСЛУГ (трансферы, экскурсии) ===
 

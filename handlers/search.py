@@ -467,7 +467,7 @@ async def display_excursion_results(message: Message, query: str, results: list,
         await message.answer(info_text)
 
         # ИСПРАВЛЕНИЕ: Запрашиваем количество человек (как в обычном флоу)
-        from handlers.excursions import get_people_count_keyboard
+        from handlers.excursions.common import get_people_count_keyboard
         from utils.texts import EXCURSIONS_PRIVATE_INTRO
 
         await message.answer(
@@ -505,7 +505,7 @@ async def display_excursion_results(message: Message, query: str, results: list,
 
         # Для групповых экскурсий устанавливаем количество людей = 1 по умолчанию
         if excursion_type == "group":
-            from handlers.excursions import show_group_excursion
+            from handlers.excursions.group import show_group_excursion
 
             # Устанавливаем количество людей = 1 (пользователь может изменить позже)
             await state.update_data(excursion_people_count=1)
@@ -513,7 +513,7 @@ async def display_excursion_results(message: Message, query: str, results: list,
             await show_group_excursion(message, state, 0)
         else:
             # Для попутчиков показываем сразу
-            from handlers.excursions import show_group_excursion
+            from handlers.excursions.group import show_group_excursion
             await state.set_state(UserStates.EXCURSIONS_SHOW_RESULTS)
             await show_group_excursion(message, state, 0)
 
