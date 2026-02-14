@@ -1,9 +1,6 @@
 """Трансформер для ежедневных экскурсий (daily service)"""
-import logging
 from typing import Optional
 from .base import BaseTransformer
-
-logger = logging.getLogger(__name__)
 
 
 class DailyTransformer(BaseTransformer):
@@ -24,12 +21,6 @@ class DailyTransformer(BaseTransformer):
             return None
 
         # API уже вернул ежедневные через props=daily, дополнительная проверка не нужна
-
-        # Фильтруем услуги только для агентов (дополнительная защита)
-        agents_only = service_data.get('agents_only')
-        if agents_only is not None and agents_only > 0:
-            logger.debug(f"⏭️ Пропускаем экскурсию {service_data.get('name')} (agents_only={agents_only})")
-            return None
 
         # Остров
         location = service_data.get('location', 9)

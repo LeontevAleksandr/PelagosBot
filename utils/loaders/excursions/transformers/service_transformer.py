@@ -1,9 +1,6 @@
 """Трансформер для индивидуальных экскурсий (service)"""
-import logging
 from typing import Optional
 from .base import BaseTransformer
-
-logger = logging.getLogger(__name__)
 
 
 class ServiceTransformer(BaseTransformer):
@@ -22,12 +19,6 @@ class ServiceTransformer(BaseTransformer):
             Словарь с данными экскурсии или None
         """
         if not service_data:
-            return None
-
-        # Фильтруем услуги только для агентов
-        agents_only = service_data.get('agents_only')
-        if agents_only is not None and agents_only > 0:
-            logger.debug(f"⏭️ Пропускаем экскурсию {service_data.get('name')} (agents_only={agents_only})")
             return None
 
         # Остров

@@ -29,12 +29,6 @@ class CompanionTransformer(BaseTransformer):
         if not service:
             return None
 
-        # Фильтруем услуги только для агентов
-        agents_only = service.get('agents_only')
-        if agents_only is not None and agents_only > 0:
-            logger.debug(f"⏭️ Пропускаем экскурсию {service.get('name')} (agents_only={agents_only})")
-            return None
-
         # Дата
         date_str = day_data.get('date', '')
         try:

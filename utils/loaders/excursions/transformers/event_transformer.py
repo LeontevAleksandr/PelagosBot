@@ -28,12 +28,6 @@ class EventTransformer(BaseTransformer):
 
         service = event.service
 
-        # Фильтруем услуги только для агентов
-        agents_only = getattr(service, 'agents_only', None)
-        if agents_only is not None and agents_only > 0:
-            logger.debug(f"⏭️ Пропускаем экскурсию {service.name} (agents_only={agents_only})")
-            return None
-
         # Дата и время
         date_str = None
         time_str = None
