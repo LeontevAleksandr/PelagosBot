@@ -64,7 +64,7 @@ class ServiceTransformer(BaseTransformer):
             "people_count": 1,
             "photo": photo_url,
             "photos": pics,
-            "url": f"https://ru.pelagos.ru/activity/{excursion_id}/" if excursion_id else "",
+            "url": service_data.get('inhttp') or (f"https://ru.pelagos.ru/activity/{excursion_id}/" if excursion_id else ""),
             "has_russian_guide": service_data.get('russian_guide') == 10,
             "private_transport": service_data.get('private_transport') == 10,
             "lunch_included": service_data.get('lunch_included') == 10,

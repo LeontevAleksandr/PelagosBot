@@ -74,7 +74,7 @@ class CompanionTransformer(BaseTransformer):
             "price": 0,
             "price_usd": 0,
             "photo": photo_url,
-            "url": f"https://ru.pelagos.ru/activity/{service_id}/",
+            "url": service.get('inhttp') or f"https://ru.pelagos.ru/activity/{service_id}/",
             "pax": total_pax,
             "companions": companions_list,
             "has_russian_guide": service.get('russian_guide') == 10,
