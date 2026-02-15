@@ -71,10 +71,16 @@ class PrivateFetcher:
                         if exc_dict:
                             excursions.append(exc_dict)
 
+                    daily_excursions = []
                     for service in daily_services:
                         exc_dict = DailyTransformer.transform(service)
                         if exc_dict:
-                            excursions.append(exc_dict)
+                            daily_excursions.append(exc_dict)
+
+                    # Подгружаем цены для ежедневных (export-services не содержит цен)
+                    if daily_excursions:
+                        await self._load_daily_prices(daily_excursions)
+                        excursions.extend(daily_excursions)
 
                     # Кэшируем результат для этого острова
                     self.cache.set(cache_key, excursions, ttl=CACHE_TTL_PRIVATE)
@@ -159,6 +165,10 @@ class PrivateFetcher:
                 if exc_dict:
                     excursions.append(exc_dict)
 
+            # Подгружаем цены (export-services не содержит цен)
+            if excursions:
+                await self._load_daily_prices(excursions)
+
             # Кэшируем
             self.cache.set(cache_key, excursions, ttl=CACHE_TTL_DAILY)
 
@@ -168,6 +178,26 @@ class PrivateFetcher:
         except Exception as e:
             logger.error(f"❌ Ошибка загрузки ежедневных экскурсий: {e}", exc_info=True)
             return []
+
+    async def _load_daily_prices(self, excursions: List[dict]):
+        """Подгрузить цены для ежедневных экскурсий через export-services-prices"""
+        async def fetch_price(exc):
+            try:
+                prices = await self.api.get_service_prices(int(exc['service_id']))
+                if prices:
+                    # Ежедневные групповые — фиксированная цена, берём первую из plst
+                    plst = prices[0].get('plst', [])
+                    if plst:
+                        price = plst[0].get('price', 0)
+                        if price:
+                            exc['price'] = price
+                            exc['price_usd'] = price
+                            exc['min_price'] = price
+            except Exception as e:
+                logger.error(f"Ошибка загрузки цены для {exc.get('id')}: {e}")
+
+        await asyncio.gather(*[fetch_price(exc) for exc in excursions], return_exceptions=True)
+        logger.info(f"💰 Загружены цены для {len(excursions)} ежедневных экскурсий")
 
     async def preload(self, island: str = None):
         """
