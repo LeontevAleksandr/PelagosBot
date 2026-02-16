@@ -9,7 +9,7 @@ def get_packages_intro_text(name: str) -> str:
 Посмотрите доступные туры:"""
 
 
-def get_package_card_text(package: dict) -> str:
+def get_package_card_text(package: dict, people_count: int = 1) -> str:
     """Форматирование карточки пакетного тура"""
     text = f"<b>{package['name']}</b>\n"
 
@@ -27,12 +27,29 @@ def get_package_card_text(package: dict) -> str:
     if includes:
         text += "\n" + "\n".join(includes) + "\n"
 
-    # Цена
-    price_usd = package.get('price_usd')
-    if price_usd:
-        price_rub = int(convert_price(price_usd, "usd", "rub"))
-        price_peso = int(convert_price(price_usd, "usd", "peso"))
-        text += f"\n💵 от ${price_usd} / {price_rub} руб. / {price_peso} песо за чел.\n"
+    # Цена для выбранного количества людей
+    price_list = package.get('price_list', {})
+    if price_list:
+        # Ищем цену для нужного grp
+        price_per_person = price_list.get(people_count)
+        if price_per_person is None:
+            available = sorted(price_list.keys())
+            for grp in available:
+                if grp >= people_count:
+                    price_per_person = price_list[grp]
+                    break
+            if price_per_person is None and available:
+                price_per_person = price_list[max(available)]
+
+        if price_per_person:
+            total = price_per_person * people_count
+            total_rub = int(convert_price(total, "usd", "rub"))
+            total_peso = int(convert_price(total, "usd", "peso"))
+            per_person_rub = int(convert_price(price_per_person, "usd", "rub"))
+            per_person_peso = int(convert_price(price_per_person, "usd", "peso"))
+
+            text += f"\n👥 {people_count} чел. × ${price_per_person} / {per_person_rub} руб. / {per_person_peso} песо"
+            text += f"\n💰 <b>Итого: ${total} / {total_rub} руб. / {total_peso} песо</b>\n"
     elif not package.get('prices_loaded'):
         text += "\n💵 Цена по запросу\n"
 

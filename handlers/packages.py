@@ -19,12 +19,45 @@ from utils.order_manager import order_manager
 router = Router()
 
 
-# ========== Старт флоу пакетных туров ==========
+# ========== Старт флоу: выбор количества человек ==========
 
 @router.callback_query(F.data == "main:packages")
 async def start_packages_flow(callback: CallbackQuery, state: FSMContext):
-    """Начало флоу пакетных туров — загрузка и показ карточек"""
+    """Начало флоу пакетных туров — выбор количества человек"""
     await callback.answer()
+
+    buttons = [
+        [
+            InlineKeyboardButton(text="1 человек", callback_data="pkg_people:1"),
+            InlineKeyboardButton(text="2 человека", callback_data="pkg_people:2"),
+            InlineKeyboardButton(text="3 человека", callback_data="pkg_people:3")
+        ],
+        [
+            InlineKeyboardButton(text="4 человека", callback_data="pkg_people:4"),
+            InlineKeyboardButton(text="5 и более", callback_data="pkg_people:5")
+        ],
+        [InlineKeyboardButton(text="🏠 В главное меню", callback_data="back:main")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.edit_text(
+        "Пакетные туры позволяют охватить большее количество островов, "
+        "познакомиться с интересными людьми и при этом сэкономить.\n\n"
+        "Сколько человек поедет?",
+        reply_markup=keyboard
+    )
+
+    await state.set_state(UserStates.PACKAGE_TOURS_SELECT_PEOPLE)
+
+
+# ========== Выбор количества людей → загрузка и показ туров ==========
+
+@router.callback_query(UserStates.PACKAGE_TOURS_SELECT_PEOPLE, F.data.startswith("pkg_people:"))
+async def select_people_and_show_packages(callback: CallbackQuery, state: FSMContext):
+    """Выбор количества людей — загрузка и показ туров с ценами"""
+    await callback.answer()
+
+    people_count = int(callback.data.split(":")[1])
 
     # Показываем загрузку
     await callback.message.edit_text("⏳ Загружаю пакетные туры...")
@@ -42,7 +75,8 @@ async def start_packages_flow(callback: CallbackQuery, state: FSMContext):
     # Сохраняем данные
     await state.update_data(
         packages=packages,
-        current_package_index=0
+        current_package_index=0,
+        package_people_count=people_count
     )
 
     # Удаляем сообщение загрузки
@@ -60,9 +94,10 @@ async def start_packages_flow(callback: CallbackQuery, state: FSMContext):
 # ========== Показ карточки тура ==========
 
 async def show_package_card(message: Message, state: FSMContext, index: int):
-    """Показать карточку пакетного тура с ленивой загрузкой цен"""
+    """Показать карточку пакетного тура с ценой для выбранного количества людей"""
     data = await state.get_data()
     packages = data.get("packages", [])
+    people_count = data.get("package_people_count", 1)
 
     if not packages or index >= len(packages):
         return
@@ -77,7 +112,7 @@ async def show_package_card(message: Message, state: FSMContext, index: int):
             packages[index] = package
             await state.update_data(packages=packages)
 
-    card_text = get_package_card_text(package)
+    card_text = get_package_card_text(package, people_count)
 
     # Формируем клавиатуру
     buttons = []
@@ -127,6 +162,7 @@ async def send_packages_cards_page(message: Message, state: FSMContext, page: in
     """Отправить страницу с пакетными турами (по 5 штук)"""
     data = await state.get_data()
     packages = data.get("packages", [])
+    people_count = data.get("package_people_count", 1)
 
     if not packages:
         return
@@ -146,7 +182,7 @@ async def send_packages_cards_page(message: Message, state: FSMContext, page: in
 
     # Функция форматирования карточки
     def format_card(package):
-        return get_package_card_text(package)
+        return get_package_card_text(package, people_count)
 
     # Функция создания клавиатуры
     def get_keyboard(package):
@@ -296,69 +332,15 @@ async def navigate_packages_calendar(callback: CallbackQuery):
 
 @router.callback_query(UserStates.PACKAGE_TOURS_SELECT_DATE, F.data.startswith("date:"))
 async def select_package_date(callback: CallbackQuery, state: FSMContext):
-    """Выбор даты — показать кнопки количества людей"""
+    """Выбор даты — показать итоговую стоимость"""
     await callback.answer()
 
     date = callback.data.split(":")[1]
     await state.update_data(desired_travel_date=date)
 
-    # Показываем кнопки выбора количества человек
-    buttons = [
-        [
-            InlineKeyboardButton(text="1 человек", callback_data="pkg_people:1"),
-            InlineKeyboardButton(text="2 человека", callback_data="pkg_people:2"),
-            InlineKeyboardButton(text="3 человека", callback_data="pkg_people:3")
-        ],
-        [
-            InlineKeyboardButton(text="4 человека", callback_data="pkg_people:4"),
-            InlineKeyboardButton(text="5 и более", callback_data="pkg_people:5")
-        ],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="pkg:back_from_people")]
-    ]
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-    await callback.message.edit_text(
-        f"📅 Дата: <b>{format_date(date)}</b>\n\nВыберите количество человек:",
-        reply_markup=keyboard
-    )
-
-    await state.set_state(UserStates.PACKAGE_TOURS_SELECT_PEOPLE)
-
-
-# ========== Бронирование: выбор количества людей ==========
-
-@router.callback_query(UserStates.PACKAGE_TOURS_SELECT_PEOPLE, F.data == "pkg:back_from_people")
-async def back_from_people_select(callback: CallbackQuery, state: FSMContext):
-    """Возврат к выбору даты"""
-    await callback.answer()
-
-    now = datetime.now()
-    calendar = get_calendar_keyboard(now.year, now.month, back_callback="pkg:back_from_calendar")
-
     data = await state.get_data()
     package_id = data.get("selected_package_id")
-    package = await get_data_loader().get_package_with_prices(package_id)
-    package_name = package['name'] if package else "Тур"
-
-    await callback.message.edit_text(
-        f"Вы выбрали тур \"<b>{package_name}</b>\"\n\nВыберите дату поездки:",
-        reply_markup=calendar
-    )
-
-    await state.set_state(UserStates.PACKAGE_TOURS_SELECT_DATE)
-
-
-@router.callback_query(UserStates.PACKAGE_TOURS_SELECT_PEOPLE, F.data.startswith("pkg_people:"))
-async def select_package_people(callback: CallbackQuery, state: FSMContext):
-    """Выбор количества людей — показать итоговую стоимость"""
-    await callback.answer()
-
-    people_count = int(callback.data.split(":")[1])
-
-    data = await state.get_data()
-    package_id = data.get("selected_package_id")
-    desired_date = data.get("desired_travel_date", "")
+    people_count = data.get("package_people_count", 1)
 
     # Загружаем тур с ценами
     package = await get_data_loader().get_package_with_prices(package_id)
@@ -368,13 +350,10 @@ async def select_package_people(callback: CallbackQuery, state: FSMContext):
     # Получаем цену для выбранного количества людей
     price_per_person = get_data_loader().get_price_for_people_count(package, people_count)
 
-    await state.update_data(
-        package_people_count=people_count,
-        package_price_per_person=price_per_person
-    )
+    await state.update_data(package_price_per_person=price_per_person)
 
     # Формируем итоговый текст
-    date_str = format_date(desired_date) if desired_date else "по согласованию"
+    date_str = format_date(date)
     summary_text = get_package_summary_text(package['name'], date_str, people_count, price_per_person)
 
     buttons = [
