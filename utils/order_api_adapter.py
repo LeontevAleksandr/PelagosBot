@@ -202,36 +202,28 @@ class OrderAPIAdapter:
         package_item: dict,
         state_data: dict
     ) -> Dict[str, Any]:
-    
-        user_name = state_data.get("user_name", "")
 
         # ID пакетного тура
         package_id = package_item.get("service_id", 0)
 
-        # Даты пакетного тура
-        start_date = package_item.get("start_date", "")
-        end_date = package_item.get("end_date", "")
-        stime = OrderAPIAdapter.format_datetime(start_date)
-        etime = OrderAPIAdapter.format_datetime(end_date)
-
-        # hotel_id может быть передан если есть
-        hotel_id = package_item.get("hotel_id", 0)
+        # Дата пакетного тура (YYYY-MM-DD → DD.MM.YYYY HH:MM)
+        package_date = package_item.get("date", "")
+        stime = OrderAPIAdapter.format_datetime(package_date)
 
         # Количество человек
-        adults = package_item.get("adults", 2)
+        people_count = package_item.get("people_count", 1)
 
-        return {
-            "client_name": user_name,
-            "agent_name": "Pelagos Bot",
-            "names": "",
-            "descr": f"Пакетный тур через Telegram бот",
-            "tab": "package",
-            "hotel_id": hotel_id,
-            "stime": stime,
-            "etime": etime,
+        result = {
+            "tab": "transfer",
             "object_id": package_id,
-            "multi": str(adults)
+            "stime": stime,
+            "multi": "",
+            "adults": str(people_count)
         }
+
+        logger.info(f"📋 Конвертация пакетного тура: service_id={package_id}, date={package_date} → stime={stime}, people={people_count}")
+
+        return result
 
     @staticmethod
     def convert_order_to_parts(
