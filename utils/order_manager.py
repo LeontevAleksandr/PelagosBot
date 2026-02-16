@@ -74,20 +74,21 @@ class OrderManager:
         return state_data
 
     @staticmethod
-    def add_package(state_data: dict, package: dict, desired_date: str = "") -> dict:
+    def add_package(state_data: dict, package: dict, desired_date: str = "", people_count: int = 1, price_per_person: float = 0) -> dict:
         """Добавить пакетный тур в заказ"""
         order = state_data.get("order", [])
 
-        price_usd = package.get("price_usd") or 0
+        total_price = price_per_person * people_count if price_per_person else (package.get("price_usd") or 0)
 
         order.append({
             "type": "package",
             "name": package["name"],
-            "details": "",
-            "price_usd": price_usd,
+            "details": f"{people_count} чел.",
+            "price_usd": total_price,
             # Дополнительные данные для API
             "service_id": int(package.get("id", 0)),
             "date": desired_date,
+            "people_count": people_count,
         })
 
         state_data["order"] = order

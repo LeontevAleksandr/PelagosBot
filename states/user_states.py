@@ -45,8 +45,10 @@ class UserStates(StatesGroup):
     COMPANIONS_CREATE_SELECT_DATE = State()
     COMPANIONS_JOIN_INPUT_PEOPLE = State()  # Ввод количества людей для присоединения
     
-    # Пакетные туры (будут реализованы позже)
+    # Пакетные туры
+    PACKAGE_TOURS_BROWSE = State()
     PACKAGE_TOURS_SELECT_DATE = State()
+    PACKAGE_TOURS_SELECT_PEOPLE = State()
     
     # Трансферы
     TRANSFERS_SELECT_ISLAND = State()

@@ -6,7 +6,7 @@ def get_packages_intro_text(name: str) -> str:
     """Вступительное сообщение о пакетных турах"""
     return f"""{name}, отличный выбор. Пакетные туры позволяют охватить большее количество островов, познакомиться с интересными людьми и при этом сэкономить.
 
-На какие даты вам предложить туры?"""
+Посмотрите доступные туры:"""
 
 
 def get_package_card_text(package: dict) -> str:
@@ -32,9 +32,28 @@ def get_package_card_text(package: dict) -> str:
     if price_usd:
         price_rub = int(convert_price(price_usd, "usd", "rub"))
         price_peso = int(convert_price(price_usd, "usd", "peso"))
-        text += f"\n💵 ${price_usd} / {price_rub} руб. / {price_peso} песо\n"
+        text += f"\n💵 от ${price_usd} / {price_rub} руб. / {price_peso} песо за чел.\n"
     elif not package.get('prices_loaded'):
         text += "\n💵 Цена по запросу\n"
+
+    return text
+
+
+def get_package_summary_text(package_name: str, date: str, people_count: int, price_per_person: float) -> str:
+    """Итоговый текст перед бронированием"""
+    total_price = price_per_person * people_count
+    total_rub = int(convert_price(total_price, "usd", "rub"))
+    total_peso = int(convert_price(total_price, "usd", "peso"))
+    per_person_rub = int(convert_price(price_per_person, "usd", "rub"))
+    per_person_peso = int(convert_price(price_per_person, "usd", "peso"))
+
+    text = f"""<b>{package_name}</b>
+
+📅 Дата: {date}
+👥 Количество: {people_count} чел.
+
+💵 Цена за человека: ${price_per_person} / {per_person_rub} руб. / {per_person_peso} песо
+💰 <b>Итого: ${total_price} / {total_rub} руб. / {total_peso} песо</b>"""
 
     return text
 

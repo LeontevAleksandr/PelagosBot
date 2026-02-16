@@ -109,6 +109,10 @@ class DataLoader:
         """Получить пакетный тур по ID с ценами"""
         return await self.packages_loader.get_package_with_prices(package_id)
 
+    def get_price_for_people_count(self, package: dict, people_count: int) -> float:
+        """Получить цену тура для указанного количества людей"""
+        return self.packages_loader.get_price_for_people_count(package, people_count)
+
     # ========== ТРАНСФЕРЫ (делегирование в TransfersLoader) ==========
 
     async def get_transfers_by_island(self, island: str = None) -> list:

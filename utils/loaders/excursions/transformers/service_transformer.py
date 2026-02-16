@@ -70,4 +70,5 @@ class ServiceTransformer(BaseTransformer):
             "lunch_included": service_data.get('lunch_included') == 10,
             "tickets_included": service_data.get('tickets_included') == 10,
             "is_daily": is_daily,
+            "ord": service_data.get('ord', 0),
         }

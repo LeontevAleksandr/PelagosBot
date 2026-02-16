@@ -73,4 +73,5 @@ class DailyTransformer(BaseTransformer):
             "tickets_included": service_data.get('tickets_included') == 10,
             "is_daily": True,
             "is_group_daily": is_group_daily,
+            "ord": service_data.get('ord', 0),
         }

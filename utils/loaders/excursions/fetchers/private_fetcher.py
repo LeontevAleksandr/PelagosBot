@@ -82,6 +82,9 @@ class PrivateFetcher:
                         await self._load_daily_prices(daily_excursions)
                         excursions.extend(daily_excursions)
 
+                    # Сортируем по рейтингу (ord) в порядке убывания
+                    excursions.sort(key=lambda x: x.get('ord', 0), reverse=True)
+
                     # Кэшируем результат для этого острова
                     self.cache.set(cache_key, excursions, ttl=CACHE_TTL_PRIVATE)
 
@@ -168,6 +171,9 @@ class PrivateFetcher:
             # Подгружаем цены (export-services не содержит цен)
             if excursions:
                 await self._load_daily_prices(excursions)
+
+            # Сортируем по рейтингу (ord) в порядке убывания
+            excursions.sort(key=lambda x: x.get('ord', 0), reverse=True)
 
             # Кэшируем
             self.cache.set(cache_key, excursions, ttl=CACHE_TTL_DAILY)

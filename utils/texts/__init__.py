@@ -55,7 +55,8 @@ from .excursions import (
 from .packages import (
     get_packages_intro_text,
     get_package_card_text,
-    get_package_booking_text
+    get_package_booking_text,
+    get_package_summary_text
 )
 
 from .transfers import (
@@ -115,6 +116,7 @@ __all__ = [
     'get_packages_intro_text',
     'get_package_card_text',
     'get_package_booking_text',
+    'get_package_summary_text',
     # Transfers
     'get_transfers_intro_text',
     'get_transfer_card_text',
