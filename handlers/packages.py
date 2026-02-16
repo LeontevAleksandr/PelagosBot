@@ -303,15 +303,18 @@ async def select_package_date(callback: CallbackQuery, state: FSMContext):
     await state.update_data(desired_travel_date=date)
 
     # Показываем кнопки выбора количества человек
-    buttons = []
-    row = []
-    for i in range(1, 11):
-        row.append(InlineKeyboardButton(text=str(i), callback_data=f"pkg_people:{i}"))
-        if len(row) == 5:
-            buttons.append(row)
-            row = []
-
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="pkg:back_from_people")])
+    buttons = [
+        [
+            InlineKeyboardButton(text="1 человек", callback_data="pkg_people:1"),
+            InlineKeyboardButton(text="2 человека", callback_data="pkg_people:2"),
+            InlineKeyboardButton(text="3 человека", callback_data="pkg_people:3")
+        ],
+        [
+            InlineKeyboardButton(text="4 человека", callback_data="pkg_people:4"),
+            InlineKeyboardButton(text="5 и более", callback_data="pkg_people:5")
+        ],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="pkg:back_from_people")]
+    ]
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
