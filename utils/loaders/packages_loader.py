@@ -95,42 +95,56 @@ class PackagesLoader:
                 perpage=500
             )
 
-            services = result.get("services", [])
-            logger.info(f"📥 API вернул {len(services)} пакетных туров")
+            # Используем raw данные из API напрямую (Service dataclass теряет некоторые поля)
+            raw_services = result.get("raw_data", {}).get("services", [])
+            logger.info(f"📥 API вернул {len(raw_services)} пакетных туров")
 
             packages = []
-            for service in services:
+            for service in raw_services:
                 # Пропускаем детские тарифы
-                if service.childrate and service.childrate > 0:
+                childrate = service.get('childrate')
+                if childrate and childrate > 0:
                     continue
 
+                service_id = service.get('id')
+
+                # Фото
+                pics = service.get('pics', [])
+                photo_url = None
+                if pics and len(pics) > 0:
+                    first_pic = pics[0]
+                    if isinstance(first_pic, dict):
+                        md5 = first_pic.get('md5')
+                        ext = first_pic.get('ext')
+                        if md5 and ext:
+                            photo_url = f"https://ru.pelagos.ru/pic/{md5}/{md5}.{ext}"
+
+                # URL описания: inhttp или fallback
+                inhttp = service.get('inhttp') or f"https://app.pelagos.ru/activity/{service_id}/"
+
                 package_dict = {
-                    'id': str(service.id),
-                    'name': service.name,
-                    'type': service.type,
-                    'subtype': service.subtype,
-                    'russian_guide': bool(service.russian_guide) if service.russian_guide else False,
-                    'lunch_included': bool(service.lunch_included) if service.lunch_included else False,
-                    'private_transport': bool(service.private_transport) if service.private_transport else False,
-                    'tickets_included': bool(service.tickets_included) if service.tickets_included else False,
-                    'inhttp': service.inhttp,
-                    'pics': service.pics,
-                    'description': '',
+                    'id': str(service_id),
+                    'name': service.get('name', ''),
+                    'type': service.get('type'),
+                    'subtype': service.get('subtype'),
+                    'russian_guide': service.get('russian_guide') == 10,
+                    'lunch_included': service.get('lunch_included') == 10,
+                    'private_transport': service.get('private_transport') == 10,
+                    'tickets_included': service.get('tickets_included') == 10,
+                    'inhttp': inhttp,
+                    'pics': pics,
+                    'photo': photo_url,
+                    'ord': service.get('ord', 0),
                     # Цены загружаются отдельно
                     'price_usd': None,
                     'price_list': {},
                     'prices_loaded': False,
                 }
 
-                # Извлекаем URL первого фото
-                if service.pics and len(service.pics) > 0:
-                    first_pic = service.pics[0]
-                    if isinstance(first_pic, dict) and 'md5' in first_pic and 'ext' in first_pic:
-                        package_dict['photo'] = (
-                            f"https://app.pelagos.ru/pic/{first_pic['md5']}/{first_pic['md5']}.{first_pic['ext']}"
-                        )
-
                 packages.append(package_dict)
+
+            # Сортируем по рейтингу (ord) — чем больше, тем выше
+            packages.sort(key=lambda x: x.get('ord', 0), reverse=True)
 
             # Кэшируем
             self.cache.set(cache_key, packages, ttl=self.CACHE_TTL)
