@@ -89,6 +89,19 @@ class HotelsLoader:
                 check_out=check_out
             )
 
+        # Если задан фильтр по цене — загружаем все отели с ценами и фильтруем
+        if min_price is not None or max_price is not None:
+            return await self._get_price_filtered_hotels(
+                island=island,
+                stars=stars,
+                min_price=min_price,
+                max_price=max_price,
+                page=page,
+                per_page=per_page,
+                check_in=check_in,
+                check_out=check_out
+            )
+
         if not self.api or not island:
             logger.warning(f"⚠️ Нет API или острова")
             return {'hotels': [], 'total': 0, 'page': 0, 'total_pages': 0}
@@ -591,6 +604,113 @@ class HotelsLoader:
             'id': str(room.id),
             'name': room.name,
             'price': price if price is not None else 0  # Реальная цена или 0 если не загружена
+        }
+
+    async def _get_price_filtered_hotels(
+        self,
+        island: str,
+        stars: int = None,
+        min_price: float = None,
+        max_price: float = None,
+        page: int = 0,
+        per_page: int = None,
+        check_in: str = None,
+        check_out: str = None
+    ) -> dict:
+        """
+        Загрузить все отели с ценами, отфильтровать по диапазону цен.
+        Отель проходит фильтр если хотя бы один его номер имеет цену в диапазоне.
+        """
+        import asyncio
+
+        # Ключ кэша включает все параметры фильтрации
+        stars_key = str(stars) if stars else "all"
+        min_key = str(int(min_price)) if min_price else "0"
+        max_key = str(int(max_price)) if max_price else "inf"
+        dates_key = f"{check_in}:{check_out}" if check_in and check_out else "no_dates"
+        cache_key = f"hotels:price_filtered:{island}:{stars_key}:{min_key}:{max_key}:{dates_key}"
+
+        cached = self.cache.get(cache_key)
+        if cached:
+            logger.info(f"✓ Кэш отелей с ценовым фильтром ({len(cached)} шт)")
+            filtered = cached
+        else:
+            # Загружаем все отели острова
+            logger.info(f"📡 Загрузка всех отелей для ценового фильтра {min_price}-{max_price}...")
+            all_hotels = await self.api.get_all_hotels(island)
+
+            # Фильтр по звёздам
+            if stars:
+                all_hotels = [h for h in all_hotels if h.stars == stars]
+                logger.info(f"⭐ После фильтра по звёздам: {len(all_hotels)} отелей")
+
+            # Сортировка по рейтингу
+            all_hotels.sort(key=lambda h: h.ord if h.ord else 0, reverse=True)
+
+            logger.info(f"💰 Параллельная загрузка цен для {len(all_hotels)} отелей...")
+
+            async def load_hotel_with_prices(hotel):
+                try:
+                    rooms_cache_key = f"hotel:rooms:{hotel.id}"
+                    cached_rooms = self.cache.get(rooms_cache_key)
+                    if cached_rooms:
+                        rooms = [HotelRoom.from_dict(r) for r in cached_rooms]
+                    else:
+                        rooms = await self.api.get_all_rooms(hotel.id)
+                        rooms_dicts = [
+                            {'id': r.id, 'name': r.name, 'parent': r.parent, 'type': r.type}
+                            for r in rooms
+                        ]
+                        self.cache.set(rooms_cache_key, rooms_dicts, ttl=self.CACHE_TTL)
+                    return await self._convert_hotel_async(
+                        hotel, rooms, load_prices=True, check_in=check_in, check_out=check_out
+                    )
+                except Exception as e:
+                    logger.error(f"Ошибка загрузки отеля {hotel.id}: {e}")
+                    return self._convert_hotel(hotel, [])
+
+            hotel_dicts = await asyncio.gather(
+                *[load_hotel_with_prices(h) for h in all_hotels],
+                return_exceptions=True
+            )
+            hotel_dicts = [h for h in hotel_dicts if not isinstance(h, Exception)]
+
+            # Фильтруем: оставляем отель если хотя бы один номер попадает в диапазон
+            filtered = []
+            for hotel in hotel_dicts:
+                for room in hotel.get('rooms', []):
+                    price = room.get('price', 0)
+                    if price and price > 0:
+                        above_min = (min_price is None or price >= min_price)
+                        below_max = (max_price is None or price <= max_price)
+                        if above_min and below_max:
+                            filtered.append(hotel)
+                            break
+
+            logger.info(f"✅ Ценовой фильтр: {len(filtered)} из {len(hotel_dicts)} отелей")
+
+            # Кэшируем на 1 час (TTL совпадает с кэшем цен на номера)
+            self.cache.set(cache_key, filtered, ttl=3600)
+
+        total_hotels = len(filtered)
+        if not total_hotels:
+            return {'hotels': [], 'total': 0, 'page': page, 'total_pages': 0}
+
+        if per_page:
+            start_idx = page * per_page
+            page_hotels = filtered[start_idx:start_idx + per_page]
+            total_pages = (total_hotels + per_page - 1) // per_page
+        else:
+            # Первичная загрузка без пагинации — возвращаем все
+            page_hotels = filtered
+            total_pages = 1
+
+        logger.info(f"✅ Возвращаем {len(page_hotels)} отелей (total={total_hotels})")
+        return {
+            'hotels': page_hotels,
+            'total': total_hotels,
+            'page': page,
+            'total_pages': total_pages
         }
 
     async def _get_filtered_hotels_page(
