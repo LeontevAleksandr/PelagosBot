@@ -300,6 +300,7 @@ class OrderAPIAdapter:
                 date = item.get("date") or ""
                 time = item.get("time") or "00:00"
                 people_count = item.get("people_count") or 1
+                event_id = item.get("event_id", "")
 
                 # Форматируем дату DD.MM.YYYY
                 if date and "-" in date:
@@ -311,12 +312,14 @@ class OrderAPIAdapter:
 
                 line = f"📢 Заявка - {name}"
                 if url:
-                    line += f"\n{url}"
+                    line += f" ({url})"
                 if date:
                     line += f" дата, время: {date} {time}"
                 line += f", человек: {people_count}."
                 if contact_str:
                     line += f" {contact_str}"
+                if event_id:
+                    line += f" Страница события (https://app.pelagos.ru/manage-events/{event_id}/-/info/)"
 
             elif item_type == "transfer":
                 date = item.get("date") or ""

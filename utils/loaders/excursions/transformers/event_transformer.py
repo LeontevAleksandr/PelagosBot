@@ -118,6 +118,7 @@ class EventTransformer(BaseTransformer):
             "people_count": event.pax,
             "companions_count": event.pax,
             "photo": photo_url,
-            "url": getattr(service, 'inhttp', '') or f"https://ru.pelagos.ru/group-tours-event/{event.id}/",
+            "url": getattr(service, 'inhttp', '') or f"https://app.pelagos.ru/activity/{event.service_id}/",
+            "event_id": str(event.id),
             "has_russian_guide": getattr(service, 'russian_guide', 0) == 10,
         }
