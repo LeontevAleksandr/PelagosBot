@@ -300,8 +300,7 @@ class OrderAPI:
         endpoint = "order-api/channelmsg/"
         payload = {
             "channel": channel_id,
-            "message": msg,
-            "parse_mode": "markdown"
+            "message": msg
         }
 
         logger.info(f"📢 Отправка уведомления в канал '{channel_id}'")
