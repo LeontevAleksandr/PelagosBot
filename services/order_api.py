@@ -300,7 +300,7 @@ class OrderAPI:
         endpoint = "order-api/channelmsg/"
         payload = {
             "channel": channel_id,
-            "msg": msg,
+            "message": msg,
             "parse_mode": "markdown"
         }
 
