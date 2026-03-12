@@ -258,5 +258,53 @@ class OrderAPIAdapter:
         return parts
 
 
+    @staticmethod
+    def build_channel_message(order_items: List[dict], state_data: dict) -> str:
+        """
+        Сформировать текст уведомления о новой заявке для административного канала.
+
+        Args:
+            order_items: список позиций заказа из корзины
+            state_data: данные FSM состояния (telegram_username, phone_number, user_phone)
+
+        Returns:
+            Текст сообщения в формате Markdown
+        """
+        phone = state_data.get("phone_number") or state_data.get("user_phone", "")
+        username = state_data.get("telegram_username")
+
+        lines = ["*[Новая заявка] Пелагос (Telegram Bot)*"]
+
+        for item in order_items:
+            item_type = item.get("type", "")
+            # Убираем символы, ломающие markdown
+            name = (item.get("name") or "").replace("*", "").replace("[", "").replace("]", "").replace("`", "")
+
+            lines.append("")
+            lines.append(f"Услуга: *{name}*")
+
+            if item_type == "hotel":
+                check_in = item.get("check_in") or "уточняется"
+                check_out = item.get("check_out") or "уточняется"
+                quantity = item.get("quantity", 1)
+                lines.append(f"Заезд: {check_in}")
+                lines.append(f"Выезд: {check_out}")
+                lines.append(f"Номеров: {quantity}")
+            else:
+                date = item.get("date") or ""
+                people_count = item.get("people_count") or 1
+                lines.append(f"Дата: {date if date else 'уточняется'}")
+                lines.append(f"Кол-во: {people_count}")
+
+        lines.append("")
+        lines.append("Канал: Telegram")
+        if username:
+            lines.append(f"Telegram: @{username}")
+        if phone:
+            lines.append(f"Телефон: {phone}")
+
+        return "\n".join(lines)
+
+
 # Глобальный экземпляр
 order_api_adapter = OrderAPIAdapter()

@@ -306,6 +306,17 @@ class FrontendConnector:
             logger.error(f"❌ Исключение при обновлении заказа #{order_id}: {e}", exc_info=True)
             return False
 
+    async def notify_new_order(self, order_items: List[dict], state_data: dict) -> None:
+        """
+        Отправить уведомление о новой заявке в административный канал Pelagos.
+        Ошибки не прерывают основной флоу — только логируются.
+        """
+        try:
+            msg = order_api_adapter.build_channel_message(order_items, state_data)
+            await self.order_api.send_channelmsg("grouptours", msg)
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось отправить уведомление в канал: {e}")
+
     async def close(self):
         """Закрыть соединение с API"""
         await self.order_api.close()

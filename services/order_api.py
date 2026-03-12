@@ -284,6 +284,40 @@ class OrderAPI:
             logger.error(f"❌ Исключение при добавлении пункта: {e}", exc_info=True)
             return None
 
+    async def send_channelmsg(self, channel_id: str, msg: str) -> Optional[Dict[str, Any]]:
+        """
+        Отправить сообщение в администраторский канал
+
+        POST /order-api/channelmsg/
+
+        Args:
+            channel_id: Идентификатор канала (например, "grouptours")
+            msg: Текст сообщения в формате Markdown
+
+        Returns:
+            dict или None
+        """
+        endpoint = "order-api/channelmsg/"
+        payload = {
+            "channel": channel_id,
+            "msg": msg,
+            "parse_mode": "markdown"
+        }
+
+        logger.info(f"📢 Отправка уведомления в канал '{channel_id}'")
+
+        try:
+            data = await self.client.post(endpoint, json={"payload": payload})
+            if data and data.get("code") == "OK":
+                logger.info(f"✅ Уведомление отправлено в канал '{channel_id}'")
+                return data
+            else:
+                logger.error(f"❌ Ошибка отправки в канал: {data}")
+                return None
+        except Exception as e:
+            logger.error(f"❌ Исключение при отправке в канал: {e}", exc_info=True)
+            return None
+
     async def close(self):
         """Закрыть соединение"""
         await self.client.close()

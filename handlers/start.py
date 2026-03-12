@@ -18,12 +18,15 @@ async def cmd_start(message: Message, state: FSMContext):
     Обработчик команды /start
     Приветствие и запрос имени
     """
+    # Сохраняем Telegram username для уведомлений менеджерам
+    await state.update_data(telegram_username=message.from_user.username)
+
     # Отправляем постоянную клавиатуру
     await message.answer(
         GREETING,
         reply_markup=get_main_reply_keyboard()
     )
-    
+
     # Устанавливаем состояние ожидания имени
     await state.set_state(UserStates.ASK_NAME)
 

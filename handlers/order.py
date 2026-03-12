@@ -132,6 +132,10 @@ async def finalize_order(message: Message, state: FSMContext):
         message: Сообщение от пользователя
         state: Состояние FSM
     """
+    # Обновляем username на случай если пользователь не вызывал /start
+    if message.from_user and message.from_user.username:
+        await state.update_data(telegram_username=message.from_user.username)
+
     data = await state.get_data()
     order = order_manager.get_order(data)
 
@@ -154,6 +158,9 @@ async def finalize_order(message: Message, state: FSMContext):
             parts_failed = result.get("parts_failed", 0)
 
             logger.info(f"✅ Заказ #{order_id} успешно создан в Pelagos")
+
+            # Уведомляем администраторский канал о новой заявке
+            await frontend_connector.notify_new_order(order, data)
 
             # Сохраняем order_id в state для повторного использования
             await state.update_data(current_order_id=order_id)
