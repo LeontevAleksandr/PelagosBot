@@ -262,48 +262,88 @@ class OrderAPIAdapter:
     def build_channel_message(order_items: List[dict], state_data: dict) -> str:
         """
         Сформировать текст уведомления о новой заявке для административного канала.
-
-        Args:
-            order_items: список позиций заказа из корзины
-            state_data: данные FSM состояния (telegram_username, phone_number, user_phone)
-
-        Returns:
-            Текст сообщения в формате Markdown
         """
         phone = state_data.get("phone_number") or state_data.get("user_phone", "")
         username = state_data.get("telegram_username")
+        user_name = state_data.get("user_name", "")
 
-        lines = ["*[Новая заявка] Пелагос (Telegram Bot)*"]
+        # Контактная строка: Имя + телефон/username
+        contact_parts = []
+        if user_name:
+            contact_parts.append(user_name)
+        if phone:
+            contact_parts.append(phone)
+        elif username:
+            contact_parts.append(f"@{username}")
+        contact_str = " ".join(contact_parts)
+
+        lines = []
 
         for item in order_items:
             item_type = item.get("type", "")
-            # Убираем символы, ломающие markdown
-            name = (item.get("name") or "").replace("*", "").replace("[", "").replace("]", "").replace("`", "")
-
-            lines.append("")
-            lines.append(f"Услуга: *{name}*")
+            name = (item.get("name") or "").replace("[", "").replace("]", "")
+            service_id = item.get("service_id") or item.get("hotel_id") or 0
+            url = item.get("inhttp") or item.get("url") or (f"https://app.pelagos.ru/activity/{service_id}/" if service_id else "")
 
             if item_type == "hotel":
                 check_in = item.get("check_in") or "уточняется"
                 check_out = item.get("check_out") or "уточняется"
                 quantity = item.get("quantity", 1)
-                lines.append(f"Заезд: {check_in}")
-                lines.append(f"Выезд: {check_out}")
-                lines.append(f"Номеров: {quantity}")
-            else:
+                line = f"📢 Заявка на отель - {name}"
+                if url:
+                    line += f"\n{url}"
+                line += f" заезд: {check_in}, выезд: {check_out}, номеров: {quantity}."
+                if contact_str:
+                    line += f" {contact_str}"
+
+            elif item_type in ("excursion", "package"):
+                date = item.get("date") or ""
+                time = item.get("time") or "00:00"
+                people_count = item.get("people_count") or 1
+
+                # Форматируем дату DD.MM.YYYY
+                if date and "-" in date:
+                    try:
+                        from datetime import datetime as _dt
+                        date = _dt.strptime(date, "%Y-%m-%d").strftime("%d.%m.%Y")
+                    except Exception:
+                        pass
+
+                line = f"📢 Заявка - {name}"
+                if url:
+                    line += f"\n{url}"
+                if date:
+                    line += f" дата, время: {date} {time}"
+                line += f", человек: {people_count}."
+                if contact_str:
+                    line += f" {contact_str}"
+
+            elif item_type == "transfer":
                 date = item.get("date") or ""
                 people_count = item.get("people_count") or 1
-                lines.append(f"Дата: {date if date else 'уточняется'}")
-                lines.append(f"Кол-во: {people_count}")
 
-        lines.append("")
-        lines.append("Канал: Telegram")
-        if username:
-            lines.append(f"Telegram: @{username}")
-        if phone:
-            lines.append(f"Телефон: {phone}")
+                if date and "-" in date:
+                    try:
+                        from datetime import datetime as _dt
+                        date = _dt.strptime(date, "%Y-%m-%d").strftime("%d.%m.%Y")
+                    except Exception:
+                        pass
 
-        return "\n".join(lines)
+                line = f"📢 Заявка на трансфер - {name}"
+                if date:
+                    line += f" дата: {date}"
+                line += f", человек: {people_count}."
+                if contact_str:
+                    line += f" {contact_str}"
+
+            else:
+                line = f"📢 Заявка - {name}."
+                if contact_str:
+                    line += f" {contact_str}"
+
+            lines.append(line)
+
+        return "\n\n".join(lines)
 
 
 # Глобальный экземпляр

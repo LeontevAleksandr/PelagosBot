@@ -304,9 +304,12 @@ class OrderAPI:
         }
 
         logger.info(f"📢 Отправка уведомления в канал '{channel_id}'")
+        logger.info(f"   URL: https://app.pelagos.ru/{endpoint}")
+        logger.info(f"   Payload: {{'payload': {payload}}}")
 
         try:
             data = await self.client.post(endpoint, json={"payload": payload})
+            logger.info(f"   Ответ: {data}")
             if data and data.get("code") == "OK":
                 logger.info(f"✅ Уведомление отправлено в канал '{channel_id}'")
                 return data

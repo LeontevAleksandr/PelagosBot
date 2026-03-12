@@ -67,7 +67,8 @@ class OrderManager:
             "time": excursion.get("time"),  # Время начала (HH:MM)
             "duration": excursion.get("duration"),  # Продолжительность в минутах
             "people_count": people_count,
-            "excursion_type": excursion.get("type", "private")  # Тип: group, private, companions
+            "excursion_type": excursion.get("type", "private"),  # Тип: group, private, companions
+            "url": excursion.get("url", "")  # URL описания экскурсии
         })
 
         state_data["order"] = order
