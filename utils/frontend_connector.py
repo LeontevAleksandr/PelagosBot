@@ -308,14 +308,43 @@ class FrontendConnector:
 
     async def notify_new_order(self, order_items: List[dict], state_data: dict) -> None:
         """
-        Отправить уведомление о новой заявке в административный канал Pelagos.
+        Отправить уведомление о новой заявке.
+        Для групповых экскурсий — записать участника через sign_on_to_event (сервер сам шлёт уведомление).
+        Для остальных — отправить channelmsg.
         Ошибки не прерывают основной флоу — только логируются.
         """
-        try:
-            msg = order_api_adapter.build_channel_message(order_items, state_data)
-            await self.order_api.send_channelmsg("grouptours", msg)
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось отправить уведомление в канал: {e}")
+        name = state_data.get("user_name", "")
+        phone = state_data.get("phone_number") or state_data.get("user_phone", "")
+        tg = state_data.get("telegram_username", "")
+
+        non_group_items = []
+
+        for item in order_items:
+            if item.get("type") == "excursion" and item.get("excursion_type") == "group":
+                event_id = item.get("event_id", "")
+                pax = item.get("people_count", 1)
+                if event_id:
+                    try:
+                        await self.order_api.sign_on_to_event(
+                            ss_id=int(event_id),
+                            name=name,
+                            pax=pax,
+                            phone=phone,
+                            tg=tg
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Не удалось записать на событие {event_id}: {e}")
+                else:
+                    non_group_items.append(item)
+            else:
+                non_group_items.append(item)
+
+        if non_group_items:
+            try:
+                msg = order_api_adapter.build_channel_message(non_group_items, state_data)
+                await self.order_api.send_channelmsg("grouptours", msg)
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось отправить уведомление в канал: {e}")
 
     async def close(self):
         """Закрыть соединение с API"""

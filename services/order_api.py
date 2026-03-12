@@ -284,6 +284,29 @@ class OrderAPI:
             logger.error(f"❌ Исключение при добавлении пункта: {e}", exc_info=True)
             return None
 
+    async def sign_on_to_event(
+        self,
+        ss_id: int,
+        name: str,
+        pax: int,
+        phone: str = "",
+        tg: str = ""
+    ) -> Optional[Dict[str, Any]]:
+        """Записать участника на групповую экскурсию (POST /group-tours/)"""
+        endpoint = "group-tours/"
+        logger.info(f"📤 Запись на событие ss_id={ss_id}, name={name}, pax={pax}")
+        try:
+            data = await self.client.post(endpoint, json={
+                "payload": {"name": name, "pax": pax, "phone": phone, "tg": tg},
+                "post_sign_on": 1,
+                "ss_id": ss_id
+            })
+            logger.info(f"   Ответ sign_on: {data}")
+            return data
+        except Exception as e:
+            logger.error(f"❌ Исключение при записи на событие: {e}", exc_info=True)
+            return None
+
     async def send_channelmsg(self, channel_id: str, msg: str) -> Optional[Dict[str, Any]]:
         """
         Отправить сообщение в администраторский канал
