@@ -309,8 +309,28 @@ class FrontendConnector:
     async def notify_new_order(self, order_items: List[dict], state_data: dict) -> None:
         """
         Отправить уведомление о новой заявке в административный канал Pelagos.
+        Для групповых экскурсий — также записать участника через /group-tours/.
         Ошибки не прерывают основной флоу — только логируются.
         """
+        name = state_data.get("user_name", "")
+        phone = state_data.get("phone_number") or state_data.get("user_phone", "")
+        tg = state_data.get("telegram_username", "")
+
+        for item in order_items:
+            if item.get("type") == "excursion" and item.get("excursion_type") == "group":
+                event_id = item.get("event_id", "")
+                if event_id:
+                    try:
+                        await self.order_api.sign_on_to_event(
+                            ss_id=int(event_id),
+                            name=name,
+                            pax=item.get("people_count", 1),
+                            phone=phone,
+                            tg=tg
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Не удалось записать на событие {event_id}: {e}")
+
         try:
             msg = order_api_adapter.build_channel_message(order_items, state_data)
             await self.order_api.send_channelmsg("grouptours", msg)
