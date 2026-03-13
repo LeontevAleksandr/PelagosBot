@@ -160,7 +160,7 @@ async def finalize_order(message: Message, state: FSMContext):
             logger.info(f"✅ Заказ #{order_id} успешно создан в Pelagos")
 
             # Уведомляем администраторский канал о новой заявке
-            await frontend_connector.notify_new_order(order, data)
+            await frontend_connector.notify_new_order(order, data, order_id=order_id)
 
             # Сохраняем order_id в state для повторного использования
             await state.update_data(current_order_id=order_id)

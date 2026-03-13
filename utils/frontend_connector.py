@@ -306,7 +306,7 @@ class FrontendConnector:
             logger.error(f"❌ Исключение при обновлении заказа #{order_id}: {e}", exc_info=True)
             return False
 
-    async def notify_new_order(self, order_items: List[dict], state_data: dict) -> None:
+    async def notify_new_order(self, order_items: List[dict], state_data: dict, order_id: int = None) -> None:
         """
         Отправить уведомление о новой заявке в административный канал Pelagos.
         Для групповых экскурсий — также записать участника через /group-tours/.
@@ -315,6 +315,8 @@ class FrontendConnector:
         name = state_data.get("user_name", "")
         phone = state_data.get("phone_number") or state_data.get("user_phone", "")
         tg = state_data.get("telegram_username", "")
+
+        non_group_items = []
 
         for item in order_items:
             if item.get("type") == "excursion" and item.get("excursion_type") == "group":
@@ -330,12 +332,19 @@ class FrontendConnector:
                         )
                     except Exception as e:
                         logger.warning(f"⚠️ Не удалось записать на событие {event_id}: {e}")
+                else:
+                    non_group_items.append(item)
+            else:
+                non_group_items.append(item)
 
-        try:
-            msg = order_api_adapter.build_channel_message(order_items, state_data)
-            await self.order_api.send_channelmsg("grouptours", msg)
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось отправить уведомление в канал: {e}")
+        if non_group_items:
+            try:
+                msg = order_api_adapter.build_channel_message(non_group_items, state_data)
+                if order_id:
+                    msg += f"\nhttps://app.pelagos.ru/manage-orders/{order_id}/"
+                await self.order_api.send_channelmsg("grouptours", msg)
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось отправить уведомление в канал: {e}")
 
     async def close(self):
         """Закрыть соединение с API"""
