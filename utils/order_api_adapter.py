@@ -275,7 +275,7 @@ class OrderAPIAdapter:
             contact_parts.append(phone)
         elif username:
             contact_parts.append(f"@{username}")
-        contact_str = " ".join(contact_parts)
+        contact_str = " ".join(contact_parts).replace("_", " ")
 
         lines = []
 
@@ -300,8 +300,6 @@ class OrderAPIAdapter:
                 date = item.get("date") or ""
                 time = item.get("time") or "00:00"
                 people_count = item.get("people_count") or 1
-                event_id = item.get("event_id", "")
-
                 # Форматируем дату DD.MM.YYYY
                 if date and "-" in date:
                     try:
@@ -310,16 +308,18 @@ class OrderAPIAdapter:
                     except Exception:
                         pass
 
+                event_id = item.get("event_id", "")
+                activity_url = f"https://app.pelagos.ru/activity/{service_id}/" if service_id else ""
+                manage_url = f"https://app.pelagos.ru/manage-events/{event_id}/-/info/" if event_id else ""
+
                 line = f"📢 Заявка - {name}"
-                if url:
-                    line += f" ({url})"
-                if date:
-                    line += f" дата, время: {date} {time}"
-                line += f", человек: {people_count}."
+                if activity_url:
+                    line += f" ({activity_url})"
+                line += f" дата, время: {date} {time}, человек: {people_count}."
                 if contact_str:
                     line += f" {contact_str}"
-                if event_id:
-                    line += f" Страница события (https://app.pelagos.ru/manage-events/{event_id}/-/info/)"
+                if manage_url:
+                    line += f" Страница события ({manage_url})"
 
             elif item_type == "transfer":
                 date = item.get("date") or ""
